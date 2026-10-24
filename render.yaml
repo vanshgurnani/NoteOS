@@ -35,6 +35,12 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: LLAMA_GATEWAY_URL
+        value: https://llama-api-gateway.onrender.com
+      - key: LLAMA_GATEWAY_MODEL
+        value: llama-3.2-3b-instruct
+      - key: LLAMA_GATEWAY_API_KEY
+        sync: false
 
   # ---------------------------------------------------------------------------
   # 2. Frontend Web Service (Next.js 14)

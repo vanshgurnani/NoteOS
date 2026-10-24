@@ -35,7 +35,7 @@ export default function SettingsPage() {
   const [customAiKeyInput, setCustomAiKeyInput] = useState('');
   const [customAiModelInput, setCustomAiModelInput] = useState('gpt-4o-mini');
   const [isEditingCustomAiKey, setIsEditingCustomAiKey] = useState(false);
-  const [defaultModelInput, setDefaultModelInput] = useState('gemini-2.0-flash');
+  const [defaultModelInput, setDefaultModelInput] = useState('gemini-3.8-flash');
   const [isEditingGemini, setIsEditingGemini] = useState(false);
   const [isEditingGroq, setIsEditingGroq] = useState(false);
 
@@ -103,7 +103,7 @@ export default function SettingsPage() {
       setCustomAiUrlInput(data.ai.custom_ai_base_url || data.ai.ollama_base_url || '');
       setCustomAiKeyInput(data.ai.custom_ai_api_key || '');
       setCustomAiModelInput(data.ai.custom_ai_model || data.ai.ollama_model || 'gpt-4o-mini');
-      setDefaultModelInput(data.ai.default_model || 'gemini-2.0-flash');
+      setDefaultModelInput(data.ai.default_model || 'gemini-3.8-flash');
 
       // Populate RAG
       setChunkSize(data.ai.rag_chunk_size || 300);
@@ -613,9 +613,10 @@ export default function SettingsPage() {
                           onChange={(e) => setDefaultModelInput(e.target.value)}
                           className="settings-select"
                         >
-                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fastest, High Free Quota)</option>
-                          <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B Versatile</option>
-                          <option value="llama-3.1-8b-instant">Groq Llama 3.1 8B Instant</option>
+                          <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                          <option value="openai/gpt-oss-120b">GPT-OSS 120B (Groq)</option>
+                          <option value="openai/gpt-oss-20b">GPT-OSS 20B (Groq)</option>
+                          <option value="llama-3.2-3b-instruct">Llama 3.2 3B (NOTE OS Gateway)</option>
                           <option value="custom-ai">Custom AI / OpenAI ({customAiModelInput || 'gpt-4o-mini'})</option>
                         </select>
                       </div>

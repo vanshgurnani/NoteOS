@@ -132,7 +132,7 @@ def _offline_heuristic_response(messages: list[dict[str, str]]) -> str:
 
 def stream_gemini(
     messages: list[dict[str, str]],
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-3.8-flash",
     api_key: Optional[str] = None,
 ) -> Iterator[str]:
     key = api_key or gemini_key_mgr.get_key()
@@ -204,7 +204,7 @@ def stream_gemini(
 
 def stream_groq(
     messages: list[dict[str, str]],
-    model_name: str = "llama-3.3-70b-versatile",
+    model_name: str = "openai/gpt-oss-120b",
     api_key: Optional[str] = None,
 ) -> Iterator[str]:
     key = api_key or groq_key_mgr.get_key()
@@ -333,6 +333,53 @@ def stream_custom_ai(
                 continue
 
 
+def stream_llama_gateway(messages: list[dict[str, str]], model_name: Optional[str] = None) -> Iterator[str]:
+    """Stream from the deployed OpenAI-compatible NOTE OS Llama gateway."""
+    api_key = settings.llama_gateway_api_key
+    if not api_key:
+        raise ValueError("LLAMA_GATEWAY_API_KEY is not configured on the NOTE OS backend")
+    response = requests.post(
+        f"{settings.llama_gateway_url.rstrip('/')}/v1/chat/completions",
+        json={"model": model_name or settings.llama_gateway_model, "messages": messages,
+              "temperature": 0.2, "max_tokens": 1024, "stream": True},
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+                 "Accept": "text/event-stream"},
+        stream=True, timeout=(15, 180),
+    )
+    if response.status_code != 200:
+        try: detail = response.text[:300]
+        except Exception: detail = ""
+        response.close()
+        raise RuntimeError(f"Llama gateway returned HTTP {response.status_code}: {detail}")
+    try:
+        for line in response.iter_lines(decode_unicode=True):
+            if not line: continue
+            if isinstance(line, bytes): line = line.decode("utf-8", errors="replace")
+            if not line.startswith("data:"): continue
+            data = line[5:].strip()
+            if data == "[DONE]": break
+            try: chunk = json.loads(data)
+            except json.JSONDecodeError: continue
+            if chunk.get("error"): raise RuntimeError(f"Llama gateway error: {chunk['error']}")
+            choices = chunk.get("choices") or []
+            if choices:
+                content = (choices[0].get("delta") or {}).get("content")
+                if isinstance(content, str) and content: yield content
+    finally:
+        response.close()
+
+
+MODEL_ALIASES = {
+    "gemini-2.0-flash": "gemini-3.8-flash",
+    "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+}
+
+
+def normalize_model_name(model_name: Optional[str]) -> Optional[str]:
+    return MODEL_ALIASES.get(model_name, model_name) if model_name else model_name
+
+
 def stream_ollama(
     messages: list[dict[str, str]],
     model_name: Optional[str] = None,
@@ -346,85 +393,81 @@ def stream_chat_completion(
     model: Optional[str] = None,
     user_ai_config: Optional[dict[str, Any]] = None,
 ) -> Iterator[str]:
-    """
-    Primary multi-provider streaming dispatcher with graceful fallbacks:
-    1. Custom AI (OpenAI-compatible / Ollama)
-    2. Gemini (Flash 2.0 / 1.5)
-    3. Groq (Llama 3.3 / 3.1)
-    4. Deterministic offline context synthesis
-    """
+    """Stream a completion with provider-aware routing and safe fallbacks."""
     cfg = user_ai_config or {}
-    target_model = model or cfg.get("default_model") or settings.default_ai_model
-    gemini_key = cfg.get("gemini_api_key")
-    groq_key = cfg.get("groq_api_key")
-    custom_url = cfg.get("custom_ai_base_url") or cfg.get("ollama_base_url") or settings.custom_ai_base_url or settings.ollama_base_url
+    target_model = normalize_model_name(model or cfg.get("default_model") or settings.default_ai_model) or "gemini-3.8-flash"
+    gemini_key, groq_key = cfg.get("gemini_api_key"), cfg.get("groq_api_key")
+    custom_url = (cfg.get("custom_ai_base_url") or cfg.get("ollama_base_url") or settings.custom_ai_base_url
+                  or (settings.ollama_base_url if settings.ollama_base_url != "http://localhost:11434" else ""))
     custom_key = cfg.get("custom_ai_api_key") or settings.custom_ai_api_key
     custom_model = cfg.get("custom_ai_model") or cfg.get("ollama_model") or settings.custom_ai_model or settings.ollama_model or "gpt-4o-mini"
 
-    # 1. Custom AI / Ollama requested specifically
-    if target_model in ("custom-ai", "custom") or "ollama" in target_model.lower() or target_model == custom_model:
+    if target_model in {settings.llama_gateway_model, "llama-gateway", "llama_gateway"}:
         try:
-            yield from stream_custom_ai(
-                messages,
-                base_url=custom_url,
-                api_key=custom_key,
-                model_name=custom_model,
-            )
+            yield from stream_llama_gateway(messages, settings.llama_gateway_model)
             return
-        except Exception as e:
-            logger.warning("Custom AI stream failed: %s; trying Gemini/Groq", e)
+        except Exception as exc:
+            logger.warning("NOTE OS Llama gateway failed: %s", exc)
 
-    # 2. Groq requested
-    if "groq" in target_model or "llama" in target_model.lower():
+    if target_model in {"custom-ai", "custom"} or "ollama" in target_model.lower() or target_model == custom_model:
+        if custom_url:
+            try:
+                yield from stream_custom_ai(messages, custom_url, custom_key, custom_model)
+                return
+            except Exception as exc:
+                logger.warning("Custom AI stream failed: %s", exc)
+
+    if target_model.startswith("gemini-") and (gemini_key or settings.gemini_api_keys or settings.gemini_api_key):
         try:
-            yield from stream_groq(
-                messages,
-                model_name=target_model if "llama" in target_model else "llama-3.3-70b-versatile",
-                api_key=groq_key,
-            )
+            yield from stream_gemini(messages, target_model, gemini_key)
             return
-        except Exception as e:
-            logger.warning("Groq stream failed: %s; falling back to Gemini", e)
+        except Exception as exc:
+            logger.warning("Gemini stream failed: %s; trying gateway/Groq", exc)
 
-    # 3. Try Gemini
+    if (target_model.startswith("openai/") or "groq" in target_model) and (groq_key or settings.groq_api_keys or settings.groq_api_key):
+        try:
+            yield from stream_groq(messages, target_model if target_model.startswith("openai/") else "openai/gpt-oss-120b", groq_key)
+            return
+        except Exception as exc:
+            logger.warning("Groq stream failed: %s; trying gateway", exc)
+
+    # Resilient fallback order: Gemini -> deployed Llama gateway -> Groq -> explicitly configured custom endpoint.
     if gemini_key or settings.gemini_api_keys or settings.gemini_api_key:
         try:
-            yield from stream_gemini(
-                messages,
-                model_name=target_model if "gemini" in target_model else "gemini-2.0-flash",
-                api_key=gemini_key,
-            )
+            yield from stream_gemini(messages, "gemini-3.8-flash", gemini_key)
             return
-        except Exception as e:
-            logger.warning("Gemini stream failed: %s; falling back to Groq/Custom AI", e)
+        except Exception as exc:
+            logger.warning("Gemini fallback failed: %s", exc)
 
-    # 4. Try Groq if Gemini wasn't tried or failed
+    if settings.llama_gateway_api_key:
+        try:
+            yield from stream_llama_gateway(messages)
+            return
+        except Exception as exc:
+            logger.warning("NOTE OS Llama gateway fallback failed: %s", exc)
+
     if groq_key or settings.groq_api_keys or settings.groq_api_key:
         try:
-            yield from stream_groq(messages, api_key=groq_key)
+            yield from stream_groq(messages, "openai/gpt-oss-120b", groq_key)
             return
-        except Exception as e:
-            logger.warning("Groq fallback failed: %s; falling back to Custom AI", e)
+        except Exception as exc:
+            logger.warning("Groq fallback failed: %s", exc)
 
-    # 5. Try Custom AI / Ollama
     if custom_url:
         try:
-            yield from stream_custom_ai(messages, base_url=custom_url, api_key=custom_key, model_name=custom_model)
+            yield from stream_custom_ai(messages, custom_url, custom_key, custom_model)
             return
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Custom AI fallback failed: %s", exc)
 
-    # 6. Heuristic offline synthesis
     offline_text = _offline_heuristic_response(messages)
-    words = offline_text.split(" ")
-    buffer = []
-    for w in words:
-        buffer.append(w)
+    words, buffer = offline_text.split(), []
+    for word in words:
+        buffer.append(word)
         if len(buffer) >= 3:
             yield " ".join(buffer) + " "
             buffer = []
-    if buffer:
-        yield " ".join(buffer)
+    if buffer: yield " ".join(buffer)
 
 
 def generate_chat_completion(
@@ -435,7 +478,10 @@ def generate_chat_completion(
     """Non-streaming completion wrapper accumulating all chunks."""
     tokens = []
     for chunk in stream_chat_completion(messages, model=model, user_ai_config=user_ai_config):
-        tokens.append(chunk)
+        if isinstance(chunk, str):
+            tokens.append(chunk)
+        elif chunk is not None:
+            logger.warning("Ignoring non-text AI stream chunk of type %s", type(chunk).__name__)
     return "".join(tokens)
 
 
@@ -445,23 +491,30 @@ def get_available_models(user_ai_config: Optional[dict[str, Any]] = None) -> lis
     custom_model = cfg.get("custom_ai_model") or cfg.get("ollama_model") or settings.custom_ai_model or settings.ollama_model or "gpt-4o-mini"
     return [
         {
-            "id": "gemini-2.0-flash",
-            "name": "Gemini 2.0 Flash (Fastest, High Free Quota)",
+            "id": "gemini-3.8-flash",
+            "name": "Gemini 3.8 Flash",
             "provider": "google",
             "context_window": 1048576,
             "is_default": True,
         },
         {
-            "id": "llama-3.3-70b-versatile",
-            "name": "Llama 3.3 70B (Groq Ultra-Speed)",
+            "id": "openai/gpt-oss-120b",
+            "name": "GPT-OSS 120B (Groq)",
             "provider": "groq",
             "context_window": 128000,
             "is_default": False,
         },
         {
-            "id": "llama-3.1-8b-instant",
-            "name": "Llama 3.1 8B Instant (Ultra-Low Latency)",
+            "id": "openai/gpt-oss-20b",
+            "name": "GPT-OSS 20B (Groq Fast)",
             "provider": "groq",
+            "context_window": 128000,
+            "is_default": False,
+        },
+        {
+            "id": settings.llama_gateway_model,
+            "name": "Llama 3.2 3B (NOTE OS Gateway)",
+            "provider": "llama-gateway",
             "context_window": 128000,
             "is_default": False,
         },

@@ -85,7 +85,8 @@ Instructions for deploying to production.
 
     def test_available_models(self):
         models = get_available_models()
-        self.assertTrue(any(m["id"] == "gemini-2.0-flash" for m in models))
+        self.assertTrue(any(m["id"] == "gemini-3.8-flash" for m in models))
+        self.assertTrue(any(m["id"] == "llama-3.2-3b-instruct" for m in models))
         self.assertTrue(any("llama" in m["id"] for m in models))
 
     def test_key_redaction(self):
@@ -108,6 +109,19 @@ Instructions for deploying to production.
         # Redaction detection
         self.assertFalse(is_redacted_value("gsk_actual_groq_key_here"))
         self.assertTrue(is_redacted_value("gsk_••••••••••••xY91"))
+
+
+    def test_legacy_model_aliases_are_migrated(self):
+        from app.rag.providers import normalize_model_name
+        self.assertEqual(normalize_model_name("gemini-2.0-flash"), "gemini-3.8-flash")
+        self.assertEqual(normalize_model_name("llama-3.3-70b-versatile"), "openai/gpt-oss-120b")
+        self.assertEqual(normalize_model_name("llama-3.1-8b-instant"), "openai/gpt-oss-20b")
+
+    def test_non_text_stream_chunks_do_not_crash_completion(self):
+        from unittest.mock import patch
+        from app.rag.providers import generate_chat_completion
+        with patch("app.rag.providers.stream_chat_completion", return_value=iter(["hello", 12, None, " world"])):
+            self.assertEqual(generate_chat_completion([{"role": "user", "content": "hi"}]), "hello world")
 
 
 if __name__ == "__main__":

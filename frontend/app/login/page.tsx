@@ -22,7 +22,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       saveSession(result.token, result.user);
-      router.push('/');
+      router.push('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in');
     } finally {

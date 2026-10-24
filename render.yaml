@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://render.com/schema/render.yaml.json
-# NoteOS - Render Infrastructure Blueprint (Backend & Frontend)
+# NOTE OS - Render Infrastructure Blueprint (FastAPI backend + Next.js PWA frontend)
 
 services:
   # ---------------------------------------------------------------------------
@@ -58,23 +58,3 @@ services:
           name: noteos-backend
           property: hostport
 
-  # ---------------------------------------------------------------------------
-  # 3. PWA Edge Service (isolated proxy; existing frontend/backend untouched)
-  # ---------------------------------------------------------------------------
-  - type: web
-    name: noteos-pwa
-    runtime: node
-    rootDir: pwa
-    plan: free
-    region: oregon
-    buildCommand: npm install --omit=dev
-    startCommand: npm start
-    healthCheckPath: /manifest.webmanifest
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: UPSTREAM_FRONTEND
-        fromService:
-          type: web
-          name: noteos-frontend
-          envVarKey: RENDER_EXTERNAL_HOSTNAME

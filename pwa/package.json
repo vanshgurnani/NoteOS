@@ -1,8 +1,0 @@
-{
-  "name": "noteos-pwa-edge",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Standalone PWA edge proxy for the existing NOTE OS Render frontend",
-  "engines": { "node": ">=20" },
-  "scripts": { "start": "node server.js" }
-}

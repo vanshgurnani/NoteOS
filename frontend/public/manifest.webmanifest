@@ -9,6 +9,7 @@
   "orientation": "any",
   "background_color": "#f7f8f6",
   "theme_color": "#6f927d",
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
       "src": "/icons/noteos.svg",

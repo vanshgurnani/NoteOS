@@ -1,11 +1,40 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import PwaRegister from './components/PwaRegister';
 
 export const metadata: Metadata = {
-  title: 'NoteOS — your thinking, in one place',
-  description: 'NoteOS — a calm workspace for notes, ideas, and GPT-powered recall.',
+  title: 'NOTE OS — your thinking, in one place',
+  description: 'A calm workspace for notes, ideas, and GPT-powered recall.',
+  applicationName: 'NOTE OS',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'NOTE OS',
+    statusBarStyle: 'default',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [{ url: '/icons/noteos.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icons/noteos.svg', type: 'image/svg+xml' }],
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#6f927d',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return (
+    <html lang="en">
+      <body>
+        <PwaRegister />
+        {children}
+      </body>
+    </html>
+  );
 }

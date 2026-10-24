@@ -14,7 +14,6 @@ services:
     plan: free
     region: oregon
     healthCheckPath: /health
-    autoDeployTrigger: true
     envVars:
       - key: MONGO_URI
         sync: false # Set your MongoDB Atlas connection string in Render Dashboard (e.g., mongodb+srv://...)
@@ -51,7 +50,6 @@ services:
     region: oregon
     buildCommand: npm ci && npm run build
     startCommand: npm run start
-    autoDeployTrigger: true
     envVars:
       - key: NODE_ENV
         value: production

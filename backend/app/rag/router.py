@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from ..auth import get_current_user_id
 from ..database import note_chunks_collection, notes_collection
 from .cache import get_cached_rag_response, set_cached_rag_response
-from .providers import generate_chat_completion, get_available_models, stream_chat_completion
+from .providers import generate_chat_completion, get_available_models, is_conversational_greeting, stream_chat_completion
 from .retriever import (
     RetrievedChunk,
     index_all_user_notes,
@@ -64,14 +64,17 @@ async def query_rag(
     if cached and not payload.stream:
         return cached
 
-    # Retrieve relevant workspace chunks
-    chunks: list[RetrievedChunk] = retrieve_relevant_chunks(
-        query=payload.query,
-        owner_id=user_id,
-        top_k=payload.top_k,
-        category_filter=payload.category_filter,
-        note_id_filter=payload.note_id_filter,
-    )
+    # Retrieve relevant workspace chunks if not greeting
+    is_greeting = is_conversational_greeting(payload.query)
+    chunks: list[RetrievedChunk] = []
+    if not is_greeting:
+        chunks = retrieve_relevant_chunks(
+            query=payload.query,
+            owner_id=user_id,
+            top_k=payload.top_k,
+            category_filter=payload.category_filter,
+            note_id_filter=payload.note_id_filter,
+        )
 
     citations = [
         {
@@ -92,11 +95,10 @@ async def query_rag(
     context_str = "\n\n".join(context_blocks)
 
     system_instruction = (
-        "You are Noteform AI, an intelligent workspace copilot. "
-        "Answer the user's question accurately using ONLY the retrieved workspace notes below. "
-        "Cite the relevant note titles in brackets like [Title] whenever stating facts from them. "
-        "If the notes do not contain sufficient information to answer the question, state that clearly.\n\n"
-        f"Retrieved Workspace Context:\n{context_str or 'No relevant notes found in workspace.'}"
+        "You are NoteOS AI, an intelligent, conversational workspace copilot.\n"
+        "- For greetings (e.g. 'hi', 'hello', 'who are you?'), respond warmly and conversationally without citing notes.\n"
+        "- When the user asks questions about their notes or workspace, answer accurately and cite note titles in brackets like [Note Title].\n\n"
+        f"Retrieved Workspace Context:\n{context_str or 'No specific notes retrieved for this query.'}"
     )
 
     messages = [

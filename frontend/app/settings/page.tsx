@@ -297,12 +297,6 @@ export default function SettingsPage() {
           <div className="settings-topbar-title">
             <h2>Workspace & AI Settings</h2>
           </div>
-          <div className="settings-topbar-actions">
-            <Link href="/chat" className="settings-chat-link">
-              <span>Open AI Chat</span>
-              <span>✨</span>
-            </Link>
-          </div>
         </header>
 
         {/* Main Content Layout */}

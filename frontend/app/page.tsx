@@ -1204,6 +1204,16 @@ export default function Workspace() {
 
         {/* Quick Nav Tools */}
         <div className="notion-sidebar-quicklinks">
+          <Link
+            href="/chat"
+            className="notion-nav-row notion-nav-ai-chat"
+            title="Open AI Chat (Workspace Copilot)"
+          >
+            <span className="notion-nav-icon">✨</span>
+            <span className="notion-nav-text">Open AI Chat</span>
+            <span className="notion-nav-pill">AI</span>
+          </Link>
+
           <button
             type="button"
             className="notion-nav-row"
@@ -1402,16 +1412,6 @@ export default function Workspace() {
             <span className="notion-nav-icon">⇄</span>
             <span className="notion-nav-text">Import / Export</span>
           </button>
-
-          <Link
-            href="/chat"
-            className="notion-nav-row"
-            title="Open Noteform AI Chat (ChatGPT style with RAG)"
-          >
-            <span className="notion-nav-icon">✨</span>
-            <span className="notion-nav-text">AI Chat</span>
-            <span className="notion-nav-pill">RAG</span>
-          </Link>
 
           <button
             type="button"

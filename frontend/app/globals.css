@@ -206,6 +206,19 @@ button {
   font-weight: 500;
 }
 
+.notion-nav-ai-chat {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.08));
+  color: var(--notion-text);
+  font-weight: 500;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  margin-bottom: 4px;
+}
+.notion-nav-ai-chat:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(168, 85, 247, 0.16));
+  border-color: rgba(99, 102, 241, 0.35);
+  color: var(--notion-text);
+}
+
 .notion-nav-icon {
   width: 18px;
   text-align: center;

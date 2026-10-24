@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any, Generator, Iterator, Optional
 
@@ -42,26 +43,63 @@ gemini_key_mgr = ProviderKeyManager(settings.gemini_api_keys)
 groq_key_mgr = ProviderKeyManager(settings.groq_api_keys)
 
 
+def is_conversational_greeting(text: str) -> bool:
+    """Detect if a user input is a conversational greeting/pleasantry rather than a knowledge query."""
+    if not text:
+        return False
+    clean = re.sub(r"[^\w\s]", "", text.strip().lower())
+    words = clean.split()
+    if not words:
+        return False
+    greetings = {
+        "hi", "hello", "hey", "heyy", "heya", "hiya", "howdy", "sup", "yo", "hola",
+        "good morning", "good afternoon", "good evening", "good day",
+        "how are you", "how r u", "whats up", "what are you", "who are you",
+        "who r u", "what can you do", "help", "thanks", "thank you", "thx",
+        "bye", "goodbye", "gm", "gn"
+    }
+    if clean in greetings:
+        return True
+    if len(words) <= 2 and words[0] in {"hi", "hello", "hey", "yo"}:
+        return True
+    return False
+
+
 def _offline_heuristic_response(messages: list[dict[str, str]]) -> str:
     """
     Fallback synthesis when no external LLM API key is available and Ollama is offline.
-    Extracts relevant context from the system/user prompt and provides an informative, structured answer.
+    Provides a friendly, conversational response or cleanly formats relevant workspace notes.
     """
     system_prompt = next((m["content"] for m in messages if m.get("role") == "system"), "")
     user_prompt = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
 
-    if "Retrieved Workspace Context:" in system_prompt:
-        context_part = system_prompt.split("Retrieved Workspace Context:")[1]
+    if is_conversational_greeting(user_prompt):
         return (
-            f"Based on your workspace notes:\n\n"
-            f"{context_part.strip()}\n\n"
-            f"*(Note: Generated via Noteform Local Context Synthesizer. To enable generative AI completions, configure GEMINI_API_KEY or GROQ_API_KEY in backend/.env)*"
+            "Hello! 👋 I'm your NoteOS AI Copilot.\n\n"
+            "How can I help you today? You can:\n"
+            "- **Ask questions** about any of your workspace notes\n"
+            "- **Summarize** study schedules, projects, or documents\n"
+            "- **Brainstorm** ideas or outline new plans\n"
+            "- **Draft content** directly into your notes\n\n"
+            "*(Tip: To enable full real-time generative chat with Gemini or Groq, configure your free API key in **Settings > AI Models & Keys**)*"
         )
 
+    if "Retrieved Workspace Context:" in system_prompt:
+        context_part = system_prompt.split("Retrieved Workspace Context:")[1].strip()
+        if context_part and not context_part.startswith("No specific"):
+            clean_context = re.sub(r'---\s*Note Reference[^:\n]*:\s*"([^"]+)"\s*---', r'### \1', context_part)
+            clean_context = re.sub(r'\[Context:[^\]]+\]\n?', '', clean_context).strip()
+            return (
+                f"Based on your workspace notes relevant to **\"{user_prompt}\"**:\n\n"
+                f"{clean_context}\n\n"
+                f"---\n"
+                f"*(Note: Generated via NoteOS Local Synthesizer. To enable real-time generative chat with Gemini 2.0 or Llama 3, add your API key in **Settings > AI Models & Keys**.)*"
+            )
+
     return (
-        f"I received your request: '{user_prompt}'. "
-        "No external AI API keys are currently configured (GEMINI_API_KEY or GROQ_API_KEY). "
-        "You can configure free Gemini or Groq keys in your environment to enable real-time LLM answers."
+        f"I received your question: **\"{user_prompt}\"**.\n\n"
+        "No external AI API keys are currently configured (Gemini or Groq).\n\n"
+        "To enable full conversational AI, please add a free **Gemini API Key** or **Groq API Key** in **Settings > AI Models & Keys** or set `GEMINI_API_KEY` in your environment."
     )
 
 

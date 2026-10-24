@@ -1,4 +1,15 @@
 from datetime import datetime
+from typing import Any
+
+
+def _format_datetime(val: Any) -> str:
+    if val is None:
+        return datetime.utcnow().isoformat()
+    if isinstance(val, str):
+        return val
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
 
 
 def serialize_note(note: dict) -> dict:
@@ -23,8 +34,8 @@ def serialize_note(note: dict) -> dict:
         "tags": tags,
         "is_public": bool(note.get("is_public", False)),
         "public_id": note.get("public_id"),
-        "created_at": note.get("created_at", datetime.utcnow()).isoformat(),
-        "updated_at": note.get("updated_at", datetime.utcnow()).isoformat(),
+        "created_at": _format_datetime(note.get("created_at")),
+        "updated_at": _format_datetime(note.get("updated_at")),
     }
 
 
@@ -41,6 +52,6 @@ def serialize_public_note(note: dict) -> dict:
         "category": note.get("category", "General"),
         "icon": note.get("icon", "✦"),
         "tags": tags,
-        "created_at": note.get("created_at", datetime.utcnow()).isoformat(),
-        "updated_at": note.get("updated_at", datetime.utcnow()).isoformat(),
+        "created_at": _format_datetime(note.get("created_at")),
+        "updated_at": _format_datetime(note.get("updated_at")),
     }

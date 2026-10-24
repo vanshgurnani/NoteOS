@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from ..auth import get_current_user_id
 from ..database import chat_messages_collection, conversations_collection, notes_collection
-from ..rag.providers import generate_chat_completion, stream_chat_completion
+from ..rag.providers import generate_chat_completion, is_conversational_greeting, stream_chat_completion
 from ..rag.retriever import retrieve_relevant_chunks
 from .memory import compress_conversation_history
 from .models import (
@@ -207,10 +207,13 @@ async def send_message(
             {"$set": {"updated_at": now}},
         )
 
-    # Retrieve RAG context if enabled
+    # Check if the user's input is a conversational greeting/pleasantry
+    is_greeting = is_conversational_greeting(payload.content)
+
+    # Retrieve RAG context if enabled and not a greeting
     citations = []
     rag_context = ""
-    if payload.use_rag:
+    if payload.use_rag and not is_greeting:
         chunks = retrieve_relevant_chunks(
             query=payload.content,
             owner_id=user_id,
@@ -234,11 +237,13 @@ async def send_message(
             rag_context = "\n\n".join(context_blocks)
 
     system_prompt = (
-        "You are Noteform Copilot, a helpful AI assistant for workspace notes. "
-        "Answer the user's questions clearly in markdown. "
-        "When referencing facts from the retrieved notes below, cite the note title like [Note Title]. "
-        "If you do not know the answer or it is not in the notes, answer to the best of your ability or state so.\n\n"
-        f"Retrieved Workspace Context:\n{rag_context or 'No specific notes retrieved for this query.'}"
+        "You are NoteOS Copilot, an intelligent, conversational, and highly capable workspace assistant.\n\n"
+        "### Core Instructions:\n"
+        "1. **Conversational & Friendly:** For greetings (e.g., 'hi', 'hello', 'who are you?'), greet the user warmly and concisely explain how you can help them with their notes, research, or writing. Do not cite notes when greeting.\n"
+        "2. **Workspace Knowledge:** When the user asks questions about their notes, projects, plans, or documents, ground your answer in the retrieved notes below. Cite note titles in brackets like `[Note Title]`.\n"
+        "3. **General Knowledge:** For general topics, writing assistance, brainstorming, or technical questions not in their notes, answer thoughtfully and accurately like a world-class AI assistant.\n"
+        "4. **Format:** Output well-structured Markdown with clean headers, bullet points, and code blocks when helpful.\n\n"
+        f"### Retrieved Workspace Context:\n{rag_context or 'No specific workspace notes were retrieved for this query.'}"
     )
 
     # Get conversation history
@@ -335,7 +340,7 @@ async def export_conversation_to_note(
             note_lines.append("")
 
     content = "\n".join(note_lines)
-    now = datetime.datetime.utcnow().isoformat()
+    now = datetime.datetime.utcnow()
 
     new_note = {
         "title": title,

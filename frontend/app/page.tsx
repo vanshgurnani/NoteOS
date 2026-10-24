@@ -26,12 +26,12 @@ const categories = ['All notes', 'Personal', 'Work', 'Ideas', 'Reading', 'Genera
 const icons = ['📄', '📝', '💡', '🚀', '📚', '🎯', '📌', '💼', '⚡', '☕', '🎨', '🌿', '🛠️', '✦', '⌁', '⭐', '💻', '🔮'];
 
 const COVER_PRESETS: { id: string; name: string; bg: string }[] = [
-  { id: 'sunset', name: 'Warm Sunset', bg: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%)' },
-  { id: 'ocean', name: 'Ocean Azure', bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-  { id: 'forest', name: 'Forest Sage', bg: 'linear-gradient(135deg, #134e5e 0%, #71b280 100%)' },
-  { id: 'clay', name: 'Desert Clay', bg: 'linear-gradient(135deg, #c79081 0%, #dfa579 100%)' },
-  { id: 'minimal', name: 'Minimal Gray', bg: 'linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%)' },
-  { id: 'night', name: 'Obsidian Night', bg: 'linear-gradient(135deg, #243949 0%, #517fa4 100%)' },
+  { id: 'graphite', name: 'Graphite', bg: 'linear-gradient(135deg, #171717 0%, #555555 100%)' },
+  { id: 'silver', name: 'Silver', bg: 'linear-gradient(135deg, #f3f3f3 0%, #cfcfcf 100%)' },
+  { id: 'paper', name: 'Paper', bg: 'linear-gradient(135deg, #ffffff 0%, #e8e8e8 100%)' },
+  { id: 'charcoal', name: 'Charcoal', bg: 'linear-gradient(135deg, #242424 0%, #777777 100%)' },
+  { id: 'mist', name: 'Mist', bg: 'linear-gradient(135deg, #eeeeee 0%, #d8d8d8 100%)' },
+  { id: 'ink', name: 'Ink', bg: 'linear-gradient(135deg, #080808 0%, #333333 100%)' },
 ];
 
 const NOTION_TEMPLATES = [

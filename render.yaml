@@ -22,7 +22,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN_REGEX
-        value: "^https?:\\/\\/.*$"
+        value: "^https?:\\\\/\\\\/.*$"
       - key: CORS_ORIGINS
         fromService:
           type: web
@@ -83,4 +83,4 @@ services:
         fromService:
           type: web
           name: noteos-frontend
-          property: host
+          envVarKey: RENDER_EXTERNAL_HOSTNAME

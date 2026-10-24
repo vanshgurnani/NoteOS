@@ -10,8 +10,13 @@ from fastapi.responses import StreamingResponse
 
 from ..auth import get_current_user_id
 from ..database import chat_messages_collection, conversations_collection, notes_collection
-from ..rag.providers import generate_chat_completion, is_conversational_greeting, stream_chat_completion
-from ..rag.retriever import retrieve_relevant_chunks
+from ..rag.providers import (
+    build_copilot_system_prompt,
+    generate_chat_completion,
+    is_conversational_greeting,
+    stream_chat_completion,
+)
+from ..rag.retriever import index_note, retrieve_relevant_chunks
 from .memory import compress_conversation_history
 from .models import (
     ChatMessageOut,
@@ -236,15 +241,7 @@ async def send_message(
             context_blocks = [f"--- Note Reference: \"{c.note_title}\" ---\n{c.text}" for c in chunks]
             rag_context = "\n\n".join(context_blocks)
 
-    system_prompt = (
-        "You are NoteOS Copilot, an intelligent, conversational, and highly capable workspace assistant.\n\n"
-        "### Core Instructions:\n"
-        "1. **Conversational & Friendly:** For greetings (e.g. 'hi', 'hello', 'who are you?'), greet the user warmly and explain how you can assist them with notes, writing, research, or drafting. Never cite notes for greetings.\n"
-        "2. **Specific Workspace Queries:** ONLY reference and cite workspace notes if the retrieved context is genuinely relevant to the user's specific query. When referencing notes, cite their titles in brackets like `[Note Title]`.\n"
-        "3. **General Knowledge & Drafting:** If the user asks for a recipe, cooking tips, creative writing, draft content, coding, or general questions not related to their workspace notes, answer directly, thoroughly, and conversationally from your general knowledge. NEVER mention or cite unrelated workspace notes.\n"
-        "4. **Format & Actionability:** Output rich, publication-ready Markdown with clean headings, ingredient lists, step-by-step instructions, or code blocks as appropriate.\n\n"
-        f"### Retrieved Workspace Context:\n{rag_context or 'No specific workspace notes were retrieved for this query.'}"
-    )
+    system_prompt = build_copilot_system_prompt(rag_context)
 
     # Get conversation history
     history_cursor = chat_messages_collection().find({"conversation_id": conversation_id}).sort("created_at", 1)

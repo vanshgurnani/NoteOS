@@ -65,11 +65,28 @@ def is_conversational_greeting(text: str) -> bool:
     return False
 
 
+def build_copilot_system_prompt(rag_context: str = "") -> str:
+    """
+    Builds the definitive conversational system prompt for NoteOS Copilot.
+    Instructs the LLM to be natural, conversational, and versatile for recipes, drafting,
+    and open-ended tasks, while cleanly grounding responses only when user asks about workspace notes.
+    """
+    context_str = rag_context.strip() if rag_context else "No specific workspace notes were retrieved for this query."
+    return (
+        "You are NoteOS Copilot, an intelligent, conversational, and highly capable workspace assistant.\n\n"
+        "### Core Personality & Guidelines:\n"
+        "1. **Conversational & Versatile:** Respond warmly, naturally, and engagingly. You can answer general questions, craft culinary recipes (like Cheese Burst Pizza), draft articles, write outlines, generate code, brainstorm ideas, and summarize notes.\n"
+        "2. **Workspace Knowledge Grounding:** You have access to the user's workspace notes under 'Retrieved Workspace Context' below. ONLY cite or ground your answer in these notes when the user asks a question about their notes, projects, plans, or documents. When you state facts from their notes, cite the note titles in brackets like `[Note Title]`.\n"
+        "3. **General Knowledge & Open-Ended Requests:** If the user asks for a recipe, creative draft, coding solution, or general topic not contained in their workspace notes, answer comprehensively, thoroughly, and conversationally from your general knowledge. NEVER force citations or mention unrelated workspace notes.\n"
+        "4. **Formatting:** Use rich Markdown formatting with clean headings (`###`), bullet points, numbered instructions, ingredient lists, or code blocks where appropriate.\n\n"
+        f"### Retrieved Workspace Context:\n{context_str}"
+    )
+
+
 def _offline_heuristic_response(messages: list[dict[str, str]]) -> str:
     """
     Fallback synthesis when no external LLM API key is available or during offline mode.
-    Provides friendly, conversational responses, drafts content (e.g. recipes, articles),
-    and only cites workspace notes when genuinely relevant.
+    Provides friendly, conversational responses and only cites workspace notes when genuinely relevant.
     """
     system_prompt = next((m["content"] for m in messages if m.get("role") == "system"), "")
     user_prompt = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
@@ -86,61 +103,10 @@ def _offline_heuristic_response(messages: list[dict[str, str]]) -> str:
             "*(Tip: To enable full real-time generative chat with Gemini, Groq, or your Custom AI, configure your API key in **Settings > AI Models & Keys**)*"
         )
 
-    # 1. Specialized response for Pizza / Cheese Burst Recipe requests
-    if any(k in user_lower for k in ("pizza", "cheese burst", "chesse birst", "chesse burst", "recipe", "receipe")):
-        return (
-            "# 🍕 Authentic Domino's-Style Cheese Burst Pizza Recipe\n\n"
-            "Here is a complete, mouth-watering recipe for an **authentic Cheese Burst Pizza** with a molten, liquid cheese center inside the crust, just like Domino's!\n\n"
-            "**Yield:** 1 10-inch pizza | **Prep time:** 25 mins | **Baking time:** 12–15 mins at 220°C (425°F)\n\n"
-            "---\n\n"
-            "### 🛒 Ingredients\n\n"
-            "#### A. Pizza Dough\n"
-            "- **All-purpose flour / Bread flour:** 2 cups (250g)\n"
-            "- **Instant active yeast:** 1 tsp\n"
-            "- **Warm water:** ¾ cup (~180ml)\n"
-            "- **Sugar:** 1 tsp\n"
-            "- **Salt:** ½ tsp\n"
-            "- **Olive oil:** 2 tbsp\n"
-            "- **Fine semolina / cornmeal:** 2 tbsp (for rolling and crispy base)\n\n"
-            "#### B. The Secret Cheese Burst Center\n"
-            "- **Processed liquid cheese spread (Cheez Whiz, Amul, or Britannia):** ½ cup\n"
-            "- **Heavy cream or warm milk:** 2 tbsp (to thin the cheese for an ultra-gooey burst)\n"
-            "- **Shredded Mozzarella:** ¼ cup\n\n"
-            "#### C. Toppings & Sauce\n"
-            "- **Pizza / Marinara sauce:** ⅓ cup\n"
-            "- **Shredded Mozzarella cheese:** 1.5 cups (low-moisture works best)\n"
-            "- **Toppings:** Sliced bell peppers, red onions, sweet corn kernels, jalapeños, or black olives\n"
-            "- **Seasoning:** 1 tsp dried oregano, 1 tsp Italian herb mix, ½ tsp red chili flakes\n"
-            "- **Garlic butter:** 2 tbsp melted butter + 1 grated garlic clove (for brushing crust)\n\n"
-            "---\n\n"
-            "### 👨‍🍳 Step-by-Step Instructions\n\n"
-            "#### Step 1: Prepare the Dough\n"
-            "1. In a bowl, mix warm water, sugar, and yeast. Let it sit for 5 minutes until frothy.\n"
-            "2. Add flour, salt, and olive oil. Knead vigorously for 8–10 minutes until you get a soft, elastic, non-sticky dough.\n"
-            "3. Form into a smooth ball, grease lightly with olive oil, cover with a damp cloth, and let rise in a warm spot for 1 hour until doubled in size.\n\n"
-            "#### Step 2: The Double-Crust Secret (Cheese Burst Assembly)\n"
-            "1. Punch down the risen dough and divide it into **2 portions**: **⅓ (smaller)** and **⅔ (larger)**.\n"
-            "2. **The Inner Pocket (Small ball):** Roll the smaller portion into a very thin 7-inch circle. Prick all over with a fork so it doesn't puff up. Lightly cook on a dry tawa/pan for just 45 seconds on each side until semi-firm (do not brown). Set aside to cool.\n"
-            "3. **The Base Crust (Large ball):** Dust parchment paper with cornmeal and roll the larger dough portion into a 10-inch circle.\n"
-            "4. **Liquid Cheese Filling:** Spread the prepared liquid cheese spread + cream blend generously over the base, leaving a 1-inch outer border.\n"
-            "5. **Seal the Burst:** Place the pre-cooked 7-inch thin crust directly on top of the liquid cheese layer. Bring the extra 1-inch outer border of the bottom crust up over the edges of the top crust. Pleat and press firmly with wet fingers to create a leak-proof seal.\n\n"
-            "#### Step 3: Top and Bake\n"
-            "1. Spread pizza sauce evenly across the top crust.\n"
-            "2. Add half of the shredded mozzarella, scatter your toppings (sweet corn, onions, capsicum, jalapeños), and cover generously with the remaining mozzarella.\n"
-            "3. Brush the pleated outer crust with garlic butter and sprinkle Italian herbs.\n"
-            "4. Slide into an oven preheated to **220°C–240°C (425°F–450°F)** and bake for **12–15 minutes** until the cheese is bubbling with golden spots and the crust is crisp.\n\n"
-            "---\n\n"
-            "### 💡 Chef's Pro Tips\n"
-            "- **No Cheese Leaks:** Pre-cooking the smaller inner disc prevents sogginess and keeps the cheese sealed inside.\n"
-            "- **Super Gooey Burst:** Mixing processed cheese spread with a dash of cream prevents the cheese from solidifying as it cools.\n\n"
-            "*(Tip: Click **\"📝 Save as Note\"** on this message to save this recipe into your NoteOS workspace)*"
-        )
-
-    # 2. Check if workspace notes were retrieved and genuinely match the topic
+    # Check if workspace notes were retrieved and genuinely match the topic
     if "Retrieved Workspace Context:" in system_prompt:
         context_part = system_prompt.split("Retrieved Workspace Context:")[1].strip()
         if context_part and not context_part.startswith("No specific"):
-            # Check keyword relevance between user prompt and context
             user_tokens = set(re.findall(r"\b[a-zA-Z0-9_\-]{3,}\b", user_lower))
             context_lower = context_part.lower()
             overlap = [t for t in user_tokens if t in context_lower and t not in {"note", "notes", "workspace", "what", "how", "list"}]
@@ -154,25 +120,13 @@ def _offline_heuristic_response(messages: list[dict[str, str]]) -> str:
                     f"*(Note: Generated via NoteOS Local Synthesizer. To enable real-time generative chat with Gemini, Groq, or Custom AI, add your API key in **Settings > AI Models & Keys**.)*"
                 )
 
-    # 3. General Drafting or Knowledge response
-    if any(k in user_lower for k in ("draft", "write", "outline", "summary", "plan")):
-        return (
-            f"### 📝 Draft: {user_prompt.title()}\n\n"
-            f"Here is a structured outline and draft based on your request:\n\n"
-            f"#### 1. Executive Summary\n"
-            f"A concise overview focusing on the primary objectives and key deliverables.\n\n"
-            f"#### 2. Core Components & Strategy\n"
-            f"- **Target Goals:** Clear milestones and measurable outcomes.\n"
-            f"- **Action Items:** Prioritized steps for implementation.\n"
-            f"- **Review & Quality Check:** Scheduled check-ins and performance verification.\n\n"
-            f"#### 3. Next Steps\n"
-            f"Click **\"📝 Save as Note\"** below to turn this draft into an active note in your NoteOS workspace, or configure your Gemini/Groq/Custom AI key in Settings for expanded generative drafting."
-        )
-
+    # General conversational fallback when no notes match and no external key is configured
     return (
-        f"I received your question: **\"{user_prompt}\"**.\n\n"
-        "I'm ready to help you brainstorm, draft notes, or summarize workspace content.\n\n"
-        "To enable full real-time generative conversational chat, you can configure a free **Gemini API Key**, **Groq API Key**, or **Custom OpenAI-compatible AI / Ollama URL** in **Settings > AI Models & Keys**."
+        f"I received your request: **\"{user_prompt}\"**.\n\n"
+        "To enable real-time generative chat, recipes, drafting, or code generation, please configure your AI API key in **Settings > AI Models & Keys**:\n"
+        "- **Google Gemini:** Free API key from Google AI Studio\n"
+        "- **Groq:** Ultra-fast Llama 3 models\n"
+        "- **Custom AI / OpenAI:** Any OpenAI-compatible endpoint or local Ollama URL"
     )
 
 

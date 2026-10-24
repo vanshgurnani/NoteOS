@@ -10,7 +10,13 @@ from pydantic import BaseModel, Field
 from ..auth import get_current_user_id
 from ..database import note_chunks_collection, notes_collection
 from .cache import get_cached_rag_response, set_cached_rag_response
-from .providers import generate_chat_completion, get_available_models, is_conversational_greeting, stream_chat_completion
+from .providers import (
+    build_copilot_system_prompt,
+    generate_chat_completion,
+    get_available_models,
+    is_conversational_greeting,
+    stream_chat_completion,
+)
 from .retriever import (
     RetrievedChunk,
     index_all_user_notes,
@@ -94,12 +100,7 @@ async def query_rag(
         context_blocks.append(f"--- Note Reference [{idx}]: \"{c.note_title}\" ---\n{c.text}")
     context_str = "\n\n".join(context_blocks)
 
-    system_instruction = (
-        "You are NoteOS AI, an intelligent, conversational workspace copilot.\n"
-        "- For greetings (e.g. 'hi', 'hello', 'who are you?'), respond warmly and conversationally without citing notes.\n"
-        "- When the user asks questions about their notes or workspace, answer accurately and cite note titles in brackets like [Note Title].\n\n"
-        f"Retrieved Workspace Context:\n{context_str or 'No specific notes retrieved for this query.'}"
-    )
+    system_instruction = build_copilot_system_prompt(context_str)
 
     messages = [
         {"role": "system", "content": system_instruction},

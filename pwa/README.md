@@ -1,34 +1,33 @@
-# NOTE OS PWA package
+# NOTE OS PWA service
 
-This directory contains the isolated PWA implementation for the existing NOTE OS application.
+This is a separate Node 20+ Render web service. It reverse-proxies the existing NOTE OS Next.js frontend and adds PWA metadata and a same-origin service worker at the edge.
 
-## Repository facts verified
-- Frontend: `frontend/` — Next.js App Router, Next.js 14.2.35, React 18.
-- Backend: `backend/` — FastAPI service.
-- Existing frontend metadata: `frontend/app/layout.tsx`.
-- Existing API client and backend remain the source of truth for authentication and note data.
+## Why a proxy service?
+The existing `frontend/` and `backend/` directories remain unchanged. The PWA service presents the existing frontend under its own HTTPS origin, injects the web manifest and service-worker registration into HTML responses, and forwards application requests to the existing frontend. The frontend continues to use its existing backend configuration.
 
-## Non-invasive boundary
-No files under `frontend/` or `backend/` are changed by this branch's PWA scaffold. The PWA files are kept here for review. This means the current deployed application is **not yet installable as a PWA** until the explicit integration steps below are approved and applied.
+## Render
+The root `render.yaml` adds `noteos-pwa`:
+- Root directory: `pwa`
+- Runtime: Node
+- Start command: `npm start`
+- `UPSTREAM_FRONTEND`: linked to the `noteos-frontend` Render service host.
 
-## Contents
-- `manifest.webmanifest` — application identity and install metadata.
-- `sw.js` — conservative service worker; does not cache API/authenticated data.
-- `offline.html` — generic offline fallback, not a cached notes view.
-- `icons/noteos.svg` — source brand icon.
-- `integration/metadata.example.ts` — metadata to merge into the existing root layout.
-- `integration/register-service-worker.example.tsx` — client registration component.
+Use the PWA service's `*.onrender.com` URL as the public install URL. Keep the existing frontend and backend services running.
 
-## Integration (separate, deliberate step)
-When ready to activate the PWA, copy:
-1. `pwa/manifest.webmanifest` to `frontend/public/manifest.webmanifest`.
-2. `pwa/sw.js` to `frontend/public/sw.js`.
-3. `pwa/offline.html` to `frontend/public/offline.html`.
-4. `pwa/icons/noteos.svg` to `frontend/public/icons/noteos.svg`.
+## PWA endpoints
+- `/manifest.webmanifest`
+- `/sw.js`
+- `/offline.html`
+- `/icons/noteos.svg`
 
-Then merge the metadata from `integration/metadata.example.ts` into the existing `frontend/app/layout.tsx`, and mount the registration component from `integration/register-service-worker.example.tsx` in the root layout. Do not replace the existing layout or metadata.
+The service worker only supplies a generic offline navigation page. It deliberately does not cache authenticated responses, API routes, OAuth routes, notes, or workspace data.
 
-After integration, verify the production origin is HTTPS and test Safari Add to Home Screen on an actual iPhone. This scaffold deliberately does not add push notifications yet; Web Push needs a server-side subscription endpoint, VAPID keys, persistence, permission UX, and an explicit product decision about reminder behavior.
+## Production validation
+1. Verify the Render PWA service deploys and `/manifest.webmanifest` returns JSON.
+2. Verify `/sw.js` returns JavaScript with `Service-Worker-Allowed: /`.
+3. Test login, logout, cookies, redirects, OAuth/MCP endpoints, uploads, and note CRUD through the PWA URL.
+4. Confirm the backend CORS policy allows the PWA origin. The current blueprint's CORS regex is broad; if you tighten it later, add the PWA origin.
+5. Confirm absolute frontend URLs and OAuth redirect allowlists accept the PWA hostname.
+6. Test Add to Home Screen in Safari on a real iPhone.
 
-## Safety
-The service worker intentionally excludes `/api/`, `/auth/`, `/notes`, and all cross-origin requests from caching. It must not cache JWTs, session responses, note contents, or private user data.
+The proxy must be validated for auth/session behavior before production use. This first version does not configure Web Push or cache private notes.

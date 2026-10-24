@@ -7,6 +7,7 @@ from typing import Any, Optional
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from ..auth import get_current_user_id
 from ..database import chat_messages_collection, conversations_collection, notes_collection
@@ -23,6 +24,7 @@ from .models import (
     ConversationDetail,
     ConversationSummary,
     CreateConversationRequest,
+    CreateNoteFromMessageRequest,
     ExportToNoteRequest,
     SendMessageRequest,
     UpdateConversationRequest,

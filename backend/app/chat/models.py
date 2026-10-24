@@ -66,3 +66,11 @@ class ExportToNoteRequest(BaseModel):
     title: Optional[str] = None
     category: str = "ai-chats"
     tags: list[str] = ["ai-chat", "summary"]
+
+
+class CreateNoteFromMessageRequest(BaseModel):
+    message_id: str
+    title: Optional[str] = None
+    category: Optional[str] = "General"
+    tags: Optional[list[str]] = []
+

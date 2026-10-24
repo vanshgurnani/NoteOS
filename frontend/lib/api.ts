@@ -437,6 +437,9 @@ export type UserSettings = {
     groq_api_key: string;
     ollama_base_url: string;
     ollama_model: string;
+    llama_gateway_url: string;
+    llama_gateway_model: string;
+    llama_gateway_configured: boolean;
     default_model: string;
     rag_chunk_size: number;
     rag_chunk_overlap: number;

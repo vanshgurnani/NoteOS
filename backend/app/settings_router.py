@@ -92,6 +92,9 @@ async def get_settings(user: dict = Depends(current_user)):
         "groq_api_key": redact_key(ai_saved.get("groq_api_key")),
         "ollama_base_url": ai_saved.get("ollama_base_url", settings.ollama_base_url),
         "ollama_model": ai_saved.get("ollama_model", settings.ollama_model),
+        "llama_gateway_url": settings.llama_gateway_url,
+        "llama_gateway_model": settings.llama_gateway_model,
+        "llama_gateway_configured": bool(settings.llama_gateway_api_key),
         "default_model": ai_saved.get("default_model", settings.default_ai_model),
         "rag_chunk_size": ai_saved.get("rag_chunk_size", settings.rag_chunk_size),
         "rag_chunk_overlap": ai_saved.get("rag_chunk_overlap", settings.rag_chunk_overlap),
@@ -229,6 +232,31 @@ async def test_ai_key(payload: TestKeyRequest, user: dict = Depends(current_user
             }
         except Exception as e:
             return {"valid": False, "provider": "groq", "message": f"Connection failed: {str(e)}"}
+
+    elif provider == "llama_gateway":
+        base_url = settings.llama_gateway_url.rstrip("/")
+        if not settings.llama_gateway_api_key:
+            return {"valid": False, "provider": "llama_gateway",
+                    "message": "LLAMA_GATEWAY_API_KEY is missing from the NOTE OS backend environment. Copy APP_API_KEY from the llama-api-gateway Render service into the backend service."}
+        try:
+            health = requests.get(f"{base_url}/health", timeout=(10, 90))
+            if health.status_code != 200:
+                return {"valid": False, "provider": "llama_gateway", "message": f"Gateway health check returned HTTP {health.status_code}"}
+            models_res = requests.get(f"{base_url}/v1/models",
+                headers={"Authorization": f"Bearer {settings.llama_gateway_api_key}"},
+                timeout=(10, 45))
+            if models_res.status_code != 200:
+                return {"valid": False, "provider": "llama_gateway",
+                        "message": f"Gateway model listing returned HTTP {models_res.status_code}: {models_res.text[:120]}"}
+            names = [m.get("id", "") for m in models_res.json().get("data", []) if m.get("id")]
+            return {"valid": True, "provider": "llama_gateway",
+                    "message": f"NOTE OS Llama gateway connected. Available models: {', '.join(names) or settings.llama_gateway_model}"}
+        except requests.Timeout:
+            return {"valid": False, "provider": "llama_gateway",
+                    "message": "The Llama gateway is taking too long to wake up. Render Free services sleep when idle; retry in about a minute."}
+        except requests.RequestException as e:
+            return {"valid": False, "provider": "llama_gateway",
+                    "message": f"Could not reach NOTE OS Llama gateway at {base_url}: {str(e)}"}
 
     elif provider == "ollama":
         base_url = (payload.base_url or ai_saved.get("ollama_base_url") or settings.ollama_base_url).rstrip("/")

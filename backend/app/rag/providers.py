@@ -193,6 +193,44 @@ def stream_groq(
         raise exc
 
 
+def stream_llama_gateway(messages: list[dict[str, str]], model_name: Optional[str] = None) -> Iterator[str]:
+    """Stream OpenAI-compatible completions from the deployed NOTE OS Llama gateway."""
+    if not settings.llama_gateway_api_key:
+        raise ValueError("Set LLAMA_GATEWAY_API_KEY on the NOTE OS backend to APP_API_KEY from the llama-api-gateway Render service.")
+    url = f"{settings.llama_gateway_url.rstrip('/')}/v1/chat/completions"
+    response = requests.post(
+        url,
+        json={"model": model_name or settings.llama_gateway_model, "messages": messages,
+              "temperature": 0.2, "max_tokens": 1024, "stream": True},
+        headers={"Authorization": f"Bearer {settings.llama_gateway_api_key}",
+                 "Content-Type": "application/json", "Accept": "text/event-stream"},
+        stream=True,
+        timeout=(15, 180),
+    )
+    if response.status_code != 200:
+        try: detail = response.text[:300]
+        except Exception: detail = ""
+        response.close()
+        raise RuntimeError(f"Llama gateway returned HTTP {response.status_code}: {detail}")
+    try:
+        for line in response.iter_lines(decode_unicode=True):
+            if not line: continue
+            if isinstance(line, bytes): line = line.decode("utf-8", errors="replace")
+            if not line.startswith("data:"): continue
+            data = line[5:].strip()
+            if data == "[DONE]": break
+            try: chunk = json.loads(data)
+            except json.JSONDecodeError: continue
+            if chunk.get("error"): raise RuntimeError(f"Llama gateway error: {chunk['error']}")
+            choices = chunk.get("choices") or []
+            if choices:
+                delta = choices[0].get("delta") or {}
+                token = delta.get("content") or choices[0].get("text") or ""
+                if token: yield token
+    finally:
+        response.close()
+
+
 def stream_ollama(
     messages: list[dict[str, str]],
     model_name: Optional[str] = None,
@@ -242,8 +280,15 @@ def stream_chat_completion(
     groq_key = cfg.get("groq_api_key")
     ollama_url = cfg.get("ollama_base_url")
 
-    # Route based on model prefix or configuration
-    if "groq" in target_model or "llama" in target_model.lower():
+    # The deployed NOTE OS gateway is OpenAI-compatible, not Ollama-compatible.
+    if target_model == settings.llama_gateway_model:
+        try:
+            yield from stream_llama_gateway(messages, model_name=target_model)
+            return
+        except Exception as e:
+            logger.warning("NOTE OS Llama gateway failed: %s; trying configured fallbacks", e)
+
+    if "groq" in target_model or target_model in {"llama-3.3-70b-versatile", "llama-3.1-8b-instant"}:
         try:
             yield from stream_groq(
                 messages,
@@ -329,6 +374,13 @@ def get_available_models() -> list[dict[str, Any]]:
             "name": "Llama 3.1 8B Instant (Ultra-Low Latency)",
             "provider": "groq",
             "context_window": 128000,
+            "is_default": False,
+        },
+        {
+            "id": settings.llama_gateway_model,
+            "name": "Llama 3.2 3B (NOTE OS Gateway)",
+            "provider": "llama-gateway",
+            "context_window": 0,
             "is_default": False,
         },
         {

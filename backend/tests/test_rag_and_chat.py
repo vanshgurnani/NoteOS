@@ -3,7 +3,9 @@ from app.rag.chunker import MarkdownChunker, compute_content_hash, estimate_toke
 from app.rag.embedder import cosine_similarity, get_embedding, get_embeddings
 from app.rag.cache import compute_query_hash
 from app.chat.memory import compress_conversation_history
-from app.rag.providers import get_available_models
+from app.rag.providers import get_available_models, stream_llama_gateway
+from app.config import settings
+from unittest.mock import patch
 
 
 class TestRagAndChat(unittest.TestCase):
@@ -87,6 +89,30 @@ Instructions for deploying to production.
         models = get_available_models()
         self.assertTrue(any(m["id"] == "gemini-2.0-flash" for m in models))
         self.assertTrue(any("llama" in m["id"] for m in models))
+        self.assertTrue(any(m["id"] == settings.llama_gateway_model for m in models))
+
+    @patch("app.rag.providers.requests.post")
+    def test_llama_gateway_stream_uses_openai_sse(self, mock_post):
+        class FakeResponse:
+            status_code = 200
+            text = ""
+            def iter_lines(self, decode_unicode=True):
+                yield 'data: {"choices":[{"delta":{"content":"Hello "}}]}'
+                yield 'data: {"choices":[{"delta":{"content":"from NOTE OS"}}]}'
+                yield "data: [DONE]"
+            def close(self): pass
+        mock_post.return_value = FakeResponse()
+        with patch.object(settings, "llama_gateway_api_key", "test-key"), \
+             patch.object(settings, "llama_gateway_url", "https://gateway.example"), \
+             patch.object(settings, "llama_gateway_model", "llama-3.2-3b-instruct"):
+            chunks = list(stream_llama_gateway([{"role": "user", "content": "Hello"}]))
+        self.assertEqual("".join(chunks), "Hello from NOTE OS")
+        args, kwargs = mock_post.call_args
+        self.assertEqual(args[0], "https://gateway.example/v1/chat/completions")
+        self.assertEqual(kwargs["headers"]["Authorization"], "Bearer test-key")
+        self.assertEqual(kwargs["json"]["model"], "llama-3.2-3b-instruct")
+        self.assertTrue(kwargs["json"]["stream"])
+        self.assertEqual(kwargs["timeout"], (15, 180))
 
     def test_key_redaction(self):
         from app.settings_router import redact_key, is_redacted_value

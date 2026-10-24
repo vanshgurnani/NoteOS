@@ -44,6 +44,8 @@ export default function SettingsPage() {
   const [groqTestResult, setGroqTestResult] = useState<{ valid: boolean; message: string } | null>(null);
   const [testingOllama, setTestingOllama] = useState(false);
   const [ollamaTestResult, setOllamaTestResult] = useState<{ valid: boolean; message: string } | null>(null);
+  const [testingLlamaGateway, setTestingLlamaGateway] = useState(false);
+  const [llamaGatewayTestResult, setLlamaGatewayTestResult] = useState<{ valid: boolean; message: string } | null>(null);
 
   // Form State - RAG
   const [chunkSize, setChunkSize] = useState(300);
@@ -209,6 +211,19 @@ export default function SettingsPage() {
       setGroqTestResult({ valid: false, message: err.message || 'Verification failed' });
     } finally {
       setTestingGroq(false);
+    }
+  };
+
+  const handleTestLlamaGateway = async () => {
+    setTestingLlamaGateway(true);
+    setLlamaGatewayTestResult(null);
+    try {
+      const res = await testAiKey({ provider: 'llama_gateway' });
+      setLlamaGatewayTestResult(res);
+    } catch (err: any) {
+      setLlamaGatewayTestResult({ valid: false, message: err.message || 'Gateway verification failed' });
+    } finally {
+      setTestingLlamaGateway(false);
     }
   };
 
@@ -511,6 +526,55 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
+                    {/* Deployed NOTE OS Llama Gateway */}
+                    <div className="settings-card">
+                      <div className="settings-card-header">
+                        <div className="settings-card-title-row">
+                          <span className="settings-provider-badge ollama">Cloud</span>
+                          <h4>Llama 3.2 3B — NOTE OS Gateway</h4>
+                        </div>
+                        {settingsData?.ai.llama_gateway_configured ? (
+                          <span className="settings-status-tag connected">API key configured</span>
+                        ) : (
+                          <span className="settings-status-tag default">Backend key required</span>
+                        )}
+                      </div>
+                      <p className="settings-card-desc">
+                        Uses your deployed Cloudflare Workers AI gateway through its OpenAI-compatible API.
+                        The gateway key stays on the NOTE OS backend and is never sent to the browser.
+                      </p>
+                      <div className="settings-grid-two">
+                        <div className="settings-field-group">
+                          <label>Gateway URL</label>
+                          <input type="text" readOnly
+                            value={settingsData?.ai.llama_gateway_url || 'https://llama-api-gateway.onrender.com'}
+                            className="settings-text-input" />
+                        </div>
+                        <div className="settings-field-group">
+                          <label>Model ID</label>
+                          <input type="text" readOnly
+                            value={settingsData?.ai.llama_gateway_model || 'llama-3.2-3b-instruct'}
+                            className="settings-text-input" />
+                        </div>
+                      </div>
+                      <p className="settings-hint">
+                        Set LLAMA_GATEWAY_API_KEY on the NOTE OS backend to APP_API_KEY from your llama-api-gateway Render service.
+                        The first test may take longer while Render wakes the free service.
+                      </p>
+                      <div style={{ marginTop: '12px' }}>
+                        <button type="button" onClick={handleTestLlamaGateway}
+                          disabled={testingLlamaGateway} className="settings-btn test">
+                          {testingLlamaGateway ? 'Waking & testing gateway...' : 'Test Llama Gateway'}
+                        </button>
+                        {llamaGatewayTestResult && (
+                          <div className={`settings-test-badge ${llamaGatewayTestResult.valid ? 'success' : 'error'}`}>
+                            {llamaGatewayTestResult.valid ? '✓ ' : '✕ '}
+                            {llamaGatewayTestResult.message}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Ollama Card */}
                     <div className="settings-card">
                       <div className="settings-card-header">
@@ -582,6 +646,7 @@ export default function SettingsPage() {
                           <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fastest, High Free Quota)</option>
                           <option value="llama-3.3-70b-versatile">Groq Llama 3.3 70B Versatile</option>
                           <option value="llama-3.1-8b-instant">Groq Llama 3.1 8B Instant</option>
+                          <option value="llama-3.2-3b-instruct">Llama 3.2 3B (NOTE OS Gateway)</option>
                           <option value={ollamaModelInput || 'llama3.2:3b'}>Ollama Local ({ollamaModelInput || 'llama3.2:3b'})</option>
                         </select>
                       </div>

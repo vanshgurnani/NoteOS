@@ -52,7 +52,8 @@ app.include_router(settings_router)
 
 
 def owner_filter(user: dict) -> dict:
-    return {"owner_id": user["_id"]}
+    uid = user["_id"]
+    return {"owner_id": {"$in": [uid, str(uid)]}}
 
 
 def note_or_404(note_id: str, user: dict) -> dict:

@@ -14,16 +14,23 @@ class Settings:
         "http://127.0.0.1:3000",
         "https://noteform-1.onrender.com",
     ]
-    _env_origins = [
-        origin.strip().rstrip("/")
-        for origin in os.getenv("CORS_ORIGINS", "").split(",")
-        if origin.strip()
-    ]
+    _env_origins = []
+    for origin in os.getenv("CORS_ORIGINS", "").split(","):
+        cleaned = origin.strip().rstrip("/")
+        if not cleaned:
+            continue
+        if cleaned.startswith("http://") or cleaned.startswith("https://"):
+            _env_origins.append(cleaned)
+        else:
+            _env_origins.append(f"https://{cleaned}")
+            _env_origins.append(f"http://{cleaned}")
     cors_origins = list(dict.fromkeys([o.rstrip("/") for o in _default_origins] + _env_origins))
-    cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app")
+    cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"https://.*(\.vercel\.app|\.onrender\.com)")
     mcp_api_key = os.getenv("MCP_API_KEY", "")
-    mcp_user_id = os.getenv("MCP_USER_ID", "")
-    mcp_public_url = os.getenv("MCP_PUBLIC_URL", "https://mcp.example.com/mcp").rstrip("/")
+    _raw_mcp_url = os.getenv("MCP_PUBLIC_URL", "https://mcp.example.com/mcp").strip().rstrip("/")
+    if _raw_mcp_url and not (_raw_mcp_url.startswith("http://") or _raw_mcp_url.startswith("https://")):
+        _raw_mcp_url = f"https://{_raw_mcp_url}"
+    mcp_public_url = _raw_mcp_url
 
     # AI & RAG Configuration
     gemini_api_key = os.getenv("GEMINI_API_KEY", "")

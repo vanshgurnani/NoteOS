@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const BACKEND_URL = (
+const rawBackendUrl = (
   process.env.INTERNAL_API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:8000'
-).replace(/\/$/, '');
+).trim().replace(/\/$/, '');
+
+const BACKEND_URL =
+  rawBackendUrl.startsWith('http://') || rawBackendUrl.startsWith('https://')
+    ? rawBackendUrl
+    : `https://${rawBackendUrl}`;
 
 async function proxyMcp(req: NextRequest) {
   const backendMcpUrl = `${BACKEND_URL}/mcp`;

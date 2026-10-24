@@ -11,7 +11,7 @@ from fastapi import Depends, Header, HTTPException, status
 from jose import JWTError, jwt
 
 from .config import settings
-from .database import users_collection
+from .database import oauth_tokens_collection, users_collection
 
 
 def hash_password(password: str) -> str:
@@ -71,4 +71,25 @@ def user_from_token(token: str) -> dict:
 def current_user(authorization: Optional[str] = Header(default=None)) -> dict:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Bearer token required")
-    return user_from_token(authorization.split(" ", 1)[1].strip())
+    token = authorization.split(" ", 1)[1].strip()
+    if token.startswith("nf_oauth_"):
+        stored = oauth_tokens_collection().find_one({
+            "token_hash": hash_mcp_token(token),
+            "token_type": "access",
+            "expires_at": {"$gt": datetime.now(timezone.utc)},
+        })
+        if stored:
+            user = users_collection().find_one({"_id": stored["user_id"]})
+            if user:
+                return user
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired OAuth token")
+    if token.startswith("nf_mcp_"):
+        user = users_collection().find_one({"mcp_token_hash": hash_mcp_token(token)})
+        if user:
+            return user
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MCP token")
+    return user_from_token(token)
+
+
+def get_current_user_id(user: dict = Depends(current_user)) -> str:
+    return str(user["_id"])

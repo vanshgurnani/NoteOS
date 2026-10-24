@@ -1,6 +1,25 @@
-export const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-).replace(/\/$/, '');
+const resolveApiUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (envUrl) {
+    const trimmed = envUrl.replace(/\/$/, '');
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')
+      ? trimmed
+      : `https://${trimmed}`;
+  }
+  if (typeof window !== 'undefined') {
+    return '/api/proxy';
+  }
+  const internal = process.env.INTERNAL_API_URL?.trim();
+  if (internal) {
+    const trimmed = internal.replace(/\/$/, '');
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://')
+      ? trimmed
+      : `http://${trimmed}`;
+  }
+  return 'http://localhost:8000';
+};
+
+export const API_URL = resolveApiUrl();
 
 export type User = { id: string; username: string; email: string };
 export type Note = {

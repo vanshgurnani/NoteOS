@@ -146,7 +146,8 @@ async def index_workspace(
         from bson import ObjectId
 
         try:
-            note = notes_collection().find_one({"_id": ObjectId(payload.note_id), "owner_id": user_id})
+            owner_filter = {"$in": [user_id, ObjectId(user_id)]} if ObjectId.is_valid(user_id) else user_id
+            note = notes_collection().find_one({"_id": ObjectId(payload.note_id), "owner_id": owner_filter})
         except Exception:
             note = None
 
@@ -169,7 +170,9 @@ async def index_workspace(
 
 @router.get("/status")
 async def get_rag_status(user_id: str = Depends(get_current_user_id)):
-    total_notes = notes_collection().count_documents({"owner_id": user_id})
+    from bson import ObjectId
+    owner_filter = {"$in": [user_id, ObjectId(user_id)]} if ObjectId.is_valid(user_id) else user_id
+    total_notes = notes_collection().count_documents({"owner_id": owner_filter})
     total_chunks = note_chunks_collection().count_documents({"owner_id": user_id})
     models = get_available_models()
 

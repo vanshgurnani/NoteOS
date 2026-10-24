@@ -4,6 +4,8 @@ import datetime
 import re
 from typing import Any, Optional
 
+from bson import ObjectId
+
 from ..database import note_chunks_collection, notes_collection
 from .chunker import MarkdownChunker
 from .embedder import cosine_similarity, get_embedding, get_embeddings
@@ -135,7 +137,8 @@ def delete_note_chunks(note_id: str, owner_id: str) -> int:
 
 def index_all_user_notes(owner_id: str) -> dict[str, Any]:
     """Index or re-index all notes belonging to the user."""
-    notes_cur = notes_collection().find({"owner_id": owner_id})
+    owner_query = {"$in": [owner_id, ObjectId(owner_id)]} if ObjectId.is_valid(owner_id) else owner_id
+    notes_cur = notes_collection().find({"owner_id": owner_query})
     total_notes = 0
     total_chunks = 0
 

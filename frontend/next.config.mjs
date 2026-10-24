@@ -1,8 +1,13 @@
-const backendUrl = (
+const rawBackendUrl = (
   process.env.INTERNAL_API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:8000'
-).replace(/\/$/, '');
+).trim().replace(/\/$/, '');
+
+const backendUrl =
+  rawBackendUrl.startsWith('http://') || rawBackendUrl.startsWith('https://')
+    ? rawBackendUrl
+    : `https://${rawBackendUrl}`;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

@@ -7,17 +7,24 @@ from typing import Any, Optional
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from ..auth import get_current_user_id
 from ..database import chat_messages_collection, conversations_collection, notes_collection
-from ..rag.providers import generate_chat_completion, stream_chat_completion
-from ..rag.retriever import retrieve_relevant_chunks
+from ..rag.providers import (
+    build_copilot_system_prompt,
+    generate_chat_completion,
+    is_conversational_greeting,
+    stream_chat_completion,
+)
+from ..rag.retriever import index_note, retrieve_relevant_chunks
 from .memory import compress_conversation_history
 from .models import (
     ChatMessageOut,
     ConversationDetail,
     ConversationSummary,
     CreateConversationRequest,
+    CreateNoteFromMessageRequest,
     ExportToNoteRequest,
     SendMessageRequest,
     UpdateConversationRequest,
@@ -207,10 +214,13 @@ async def send_message(
             {"$set": {"updated_at": now}},
         )
 
-    # Retrieve RAG context if enabled
+    # Check if the user's input is a conversational greeting/pleasantry
+    is_greeting = is_conversational_greeting(payload.content)
+
+    # Retrieve RAG context if enabled and not a greeting
     citations = []
     rag_context = ""
-    if payload.use_rag:
+    if payload.use_rag and not is_greeting:
         chunks = retrieve_relevant_chunks(
             query=payload.content,
             owner_id=user_id,
@@ -233,13 +243,7 @@ async def send_message(
             context_blocks = [f"--- Note Reference: \"{c.note_title}\" ---\n{c.text}" for c in chunks]
             rag_context = "\n\n".join(context_blocks)
 
-    system_prompt = (
-        "You are Noteform Copilot, a helpful AI assistant for workspace notes. "
-        "Answer the user's questions clearly in markdown. "
-        "When referencing facts from the retrieved notes below, cite the note title like [Note Title]. "
-        "If you do not know the answer or it is not in the notes, answer to the best of your ability or state so.\n\n"
-        f"Retrieved Workspace Context:\n{rag_context or 'No specific notes retrieved for this query.'}"
-    )
+    system_prompt = build_copilot_system_prompt(rag_context)
 
     # Get conversation history
     history_cursor = chat_messages_collection().find({"conversation_id": conversation_id}).sort("created_at", 1)
@@ -335,7 +339,7 @@ async def export_conversation_to_note(
             note_lines.append("")
 
     content = "\n".join(note_lines)
-    now = datetime.datetime.utcnow().isoformat()
+    now = datetime.datetime.utcnow()
 
     new_note = {
         "title": title,
@@ -348,3 +352,65 @@ async def export_conversation_to_note(
     }
     res = notes_collection().insert_one(new_note)
     return {"note_id": str(res.inserted_id), "title": title}
+
+
+class CreateNoteFromMessageRequest(BaseModel):
+    message_id: str
+    title: Optional[str] = None
+    category: Optional[str] = "General"
+    tags: Optional[list[str]] = []
+
+
+@router.post("/chat/conversations/{conversation_id}/create-note-from-message")
+@router.post("/conversations/{conversation_id}/create-note-from-message")
+async def create_note_from_message(
+    conversation_id: str,
+    payload: CreateNoteFromMessageRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    try:
+        msg = chat_messages_collection().find_one({
+            "_id": ObjectId(payload.message_id),
+            "conversation_id": conversation_id,
+            "owner_id": user_id,
+        })
+    except Exception:
+        msg = None
+
+    if not msg:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+
+    content = msg.get("content", "").strip()
+
+    title = payload.title
+    if not title:
+        first_line = content.split("\n")[0].strip()
+        first_line_clean = re.sub(r"^#+\s*", "", first_line).strip()
+        title = first_line_clean[:60] if first_line_clean else "Draft from AI Chat"
+
+    now = datetime.datetime.utcnow()
+    new_note = {
+        "title": title,
+        "content": content,
+        "category": payload.category or "General",
+        "tags": payload.tags or ["ai-draft"],
+        "owner_id": user_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    res = notes_collection().insert_one(new_note)
+    note_id = str(res.inserted_id)
+
+    try:
+        index_note(
+            note_id=note_id,
+            owner_id=user_id,
+            title=title,
+            content=content,
+            category=new_note["category"],
+            tags=new_note["tags"],
+        )
+    except Exception:
+        pass
+
+    return {"note_id": note_id, "title": title}

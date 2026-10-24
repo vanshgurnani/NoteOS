@@ -9,6 +9,7 @@ import {
   ConversationDetail,
   ConversationSummary,
   createConversation,
+  createNoteFromMessage,
   deleteConversation,
   exportConversationToNote,
   getConversation,
@@ -34,6 +35,9 @@ export default function ChatPage() {
   const [currentStreamText, setCurrentStreamText] = useState('');
   const [currentCitations, setCurrentCitations] = useState<RagCitation[]>([]);
   const [selectedCitation, setSelectedCitation] = useState<RagCitation | null>(null);
+  const [createdNoteAlert, setCreatedNoteAlert] = useState<{ id: string; title: string } | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [savingNoteMsgId, setSavingNoteMsgId] = useState<string | null>(null);
 
   const [models, setModels] = useState<AiModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('gemini-2.0-flash');
@@ -274,6 +278,101 @@ export default function ChatPage() {
     }
   };
 
+  const handleSaveMessageAsNote = async (msg: ChatMessage) => {
+    if (!activeConv) return;
+    setSavingNoteMsgId(msg.id);
+    try {
+      const res = await createNoteFromMessage(activeConv.id, msg.id);
+      setCreatedNoteAlert({ id: res.note_id, title: res.title });
+      setStatusMessage(`✅ Saved to notes: "${res.title}"!`);
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (err: any) {
+      alert(`Could not save note: ${err.message || err}`);
+    } finally {
+      setSavingNoteMsgId(null);
+    }
+  };
+
+  const handleCopyMessage = (msgId: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMsgId(msgId);
+    setTimeout(() => setCopiedMsgId(null), 2000);
+  };
+
+  const handleDownloadChatMd = () => {
+    if (!activeConv || activeConv.messages.length === 0) {
+      alert('Conversation has no messages to export.');
+      return;
+    }
+    const safeTitle = (activeConv.title || 'chat-response')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-|-$/g, '');
+    const filename = `${safeTitle || 'noteos-chat'}.md`;
+
+    const lines = [
+      `# ${activeConv.title || 'NoteOS Copilot Chat'}`,
+      `**Export Date:** ${new Date().toISOString()}`,
+      `**Model:** ${activeConv.model || selectedModel}`,
+      '',
+      '---',
+      '',
+    ];
+
+    activeConv.messages.forEach((m) => {
+      const sender = m.role === 'user' ? '👤 **User**' : '🤖 **NoteOS Copilot**';
+      lines.push(`### ${sender} (${new Date(m.created_at).toLocaleTimeString()})`);
+      lines.push('');
+      lines.push(m.content);
+      lines.push('');
+      if (m.citations && m.citations.length > 0) {
+        lines.push('> **Referenced Sources:**');
+        m.citations.forEach((c) => {
+          lines.push(`> - [${c.note_title}]: "${c.snippet.slice(0, 140)}..."`);
+        });
+        lines.push('');
+      }
+      lines.push('---');
+      lines.push('');
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setStatusMessage(`Downloaded ${filename}!`);
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
+  const handleDownloadMessageMd = (msg: ChatMessage) => {
+    const firstLine = msg.content.split('\n')[0].replace(/^#+\s*/, '').trim();
+    const safeTitle = (firstLine || 'noteos-response')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40);
+    const filename = `${safeTitle || 'chat-response'}.md`;
+
+    const blob = new Blob([msg.content], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setStatusMessage(`Downloaded response as ${filename}!`);
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
   const handleReindex = async () => {
     setIsReindexing(true);
     try {
@@ -464,6 +563,15 @@ export default function ChatPage() {
                 <span>📥 Export to Note</span>
               </button>
 
+              {/* Download as Markdown File */}
+              <button
+                onClick={handleDownloadChatMd}
+                className="chat-export-btn"
+                title="Download this entire conversation as a Markdown (.md) file"
+              >
+                <span>⬇️ Export .md</span>
+              </button>
+
               {/* Settings Link */}
               <Link
                 href="/settings"
@@ -475,18 +583,44 @@ export default function ChatPage() {
             </div>
           </header>
 
+          {/* Created Note Alert Banner */}
+          {createdNoteAlert && (
+            <div className="chat-created-note-banner">
+              <span className="chat-created-note-icon">🎉</span>
+              <span className="chat-created-note-text">
+                Note created: <strong>{createdNoteAlert.title}</strong>
+              </span>
+              <Link href={`/?note=${createdNoteAlert.id}`} className="chat-created-note-link">
+                Open Note in Editor →
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCreatedNoteAlert(null)}
+                className="chat-created-note-close"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Messages Scroll View */}
           <div className="chat-messages-container">
             {(!activeConv || activeConv.messages.length === 0) && !isStreaming ? (
               <div className="chat-welcome-card">
                 <div className="chat-welcome-icon">✨</div>
-                <h2>Ask Noteform AI Copilot</h2>
+                <h2>Ask NoteOS Copilot</h2>
                 <p>
                   Ask questions across all your notes, synthesize insights, draft content, or brainstorm.
                   Powered by local hybrid RAG with verifiable citations.
                 </p>
 
                 <div className="chat-suggestion-grid">
+                  <button
+                    onClick={() => setInputMessage('Draft a complete Cheese Burst Pizza recipe with secret liquid cheese center and step-by-step baking instructions')}
+                    className="chat-suggestion-chip"
+                  >
+                    🍕 Draft Cheese Burst Pizza Recipe
+                  </button>
                   <button
                     onClick={() => setInputMessage('Summarize the most important ideas in my recent notes')}
                     className="chat-suggestion-chip"
@@ -498,12 +632,6 @@ export default function ChatPage() {
                     className="chat-suggestion-chip"
                   >
                     ✅ Extract action items & deadlines
-                  </button>
-                  <button
-                    onClick={() => setInputMessage('What architectural design decisions have been documented so far?')}
-                    className="chat-suggestion-chip"
-                  >
-                    🏗️ Architecture & decisions overview
                   </button>
                   <button
                     onClick={() => setInputMessage('Draft a concise executive report based on my workspace')}
@@ -522,13 +650,44 @@ export default function ChatPage() {
 
                   <div className="chat-message-body">
                     <div className="chat-message-sender">
-                      <span>{msg.role === 'user' ? 'You' : 'Noteform AI'}</span>
+                      <span>{msg.role === 'user' ? 'You' : 'NoteOS Copilot'}</span>
                       <span className="chat-message-time">
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 
                     <div className="chat-message-text">{msg.content}</div>
+
+                    {/* Action Bar for Assistant Messages */}
+                    {msg.role === 'assistant' && (
+                      <div className="chat-msg-actions-bar">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveMessageAsNote(msg)}
+                          disabled={savingNoteMsgId === msg.id}
+                          className="chat-msg-action-btn note"
+                          title="Save this response as an organized note in your workspace"
+                        >
+                          {savingNoteMsgId === msg.id ? '⏳ Saving Note...' : '📝 Save as Note'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadMessageMd(msg)}
+                          className="chat-msg-action-btn"
+                          title="Download this response directly as a Markdown (.md) file"
+                        >
+                          💾 .md
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(msg.id, msg.content)}
+                          className="chat-msg-action-btn"
+                          title="Copy message to clipboard"
+                        >
+                          {copiedMsgId === msg.id ? '✓ Copied!' : '📋 Copy'}
+                        </button>
+                      </div>
+                    )}
 
                     {/* Citations Chips */}
                     {msg.citations && msg.citations.length > 0 && (
@@ -557,7 +716,7 @@ export default function ChatPage() {
                 <div className="chat-message-avatar">🤖</div>
                 <div className="chat-message-body">
                   <div className="chat-message-sender">
-                    <span>Noteform AI</span>
+                    <span>NoteOS Copilot</span>
                     <span className="chat-streaming-indicator">Generating...</span>
                   </div>
 
@@ -587,8 +746,44 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Prompt Composer */}
+          {/* Prompt Composer & Quick Tools */}
           <div className="chat-composer-wrap">
+            <div className="chat-tools-bar">
+              <span className="chat-tools-label">⚡ Notes Tools:</span>
+              <button
+                type="button"
+                onClick={() => setInputMessage('Draft a complete Cheese Burst Pizza recipe with secret liquid cheese center and step-by-step baking instructions')}
+                className="chat-tool-btn"
+                title="Draft Cheese Burst Pizza recipe"
+              >
+                🍕 Pizza Recipe
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMessage('Draft a comprehensive workspace note outline about: ')}
+                className="chat-tool-btn"
+                title="Draft a new workspace note"
+              >
+                📝 Draft Note
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMessage('What are the key goals, decisions, and action items in my notes?')}
+                className="chat-tool-btn"
+                title="Query notes synthesis"
+              >
+                🔍 Search Notes
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/tables')}
+                className="chat-tool-btn"
+                title="Go to structured tables"
+              >
+                📊 Tables
+              </button>
+            </div>
+
             <div className="chat-composer-box">
               <textarea
                 ref={textareaRef}
@@ -600,7 +795,7 @@ export default function ChatPage() {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Ask Noteform Copilot anything... (Enter to send, Shift+Enter for new line)"
+                placeholder="Ask NoteOS Copilot anything... (Enter to send, Shift+Enter for new line)"
                 className="chat-composer-input"
                 rows={2}
               />

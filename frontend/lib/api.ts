@@ -435,6 +435,10 @@ export type UserSettings = {
   ai: {
     gemini_api_key: string;
     groq_api_key: string;
+    custom_ai_base_url?: string;
+    custom_ai_api_key?: string;
+    custom_ai_model?: string;
+    has_custom_ai?: boolean;
     ollama_base_url: string;
     ollama_model: string;
     llama_gateway_url: string;
@@ -504,6 +508,32 @@ export function changeUserPassword(currentPassword: string, newPassword: string)
     method: 'POST',
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
+}
+
+export function createNote(data: {
+  title?: string;
+  content: string;
+  category?: string;
+  tags?: string[];
+}): Promise<{ note: Note }> {
+  return api<{ note: Note }>('/notes', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function createNoteFromMessage(
+  conversationId: string,
+  messageId: string,
+  title?: string,
+): Promise<{ note_id: string; title: string }> {
+  return api<{ note_id: string; title: string }>(
+    `/chat/conversations/${conversationId}/create-note-from-message`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ message_id: messageId, title }),
+    }
+  );
 }
 
 

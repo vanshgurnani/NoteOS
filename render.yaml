@@ -29,10 +29,7 @@ services:
           name: noteos-frontend
           property: host
       - key: MCP_PUBLIC_URL
-        fromService:
-          type: web
-          name: noteos-backend
-          property: host
+        value: https://noteos-backend.onrender.com/mcp
       # Optional AI Provider API Keys (Can also be configured inside NoteOS Settings UI)
       - key: GEMINI_API_KEY
         sync: false
@@ -60,10 +57,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: noteos-backend
-          property: host
+        value: https://noteos-backend.onrender.com
       - key: INTERNAL_API_URL
         fromService:
           type: web

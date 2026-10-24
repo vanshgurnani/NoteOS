@@ -31,8 +31,10 @@ export default function SettingsPage() {
   // Form State - AI
   const [geminiKeyInput, setGeminiKeyInput] = useState('');
   const [groqKeyInput, setGroqKeyInput] = useState('');
-  const [ollamaUrlInput, setOllamaUrlInput] = useState('');
-  const [ollamaModelInput, setOllamaModelInput] = useState('');
+  const [customAiUrlInput, setCustomAiUrlInput] = useState('');
+  const [customAiKeyInput, setCustomAiKeyInput] = useState('');
+  const [customAiModelInput, setCustomAiModelInput] = useState('gpt-4o-mini');
+  const [isEditingCustomAiKey, setIsEditingCustomAiKey] = useState(false);
   const [defaultModelInput, setDefaultModelInput] = useState('gemini-2.0-flash');
   const [isEditingGemini, setIsEditingGemini] = useState(false);
   const [isEditingGroq, setIsEditingGroq] = useState(false);
@@ -100,8 +102,9 @@ export default function SettingsPage() {
       // Populate AI
       setGeminiKeyInput(data.ai.gemini_api_key || '');
       setGroqKeyInput(data.ai.groq_api_key || '');
-      setOllamaUrlInput(data.ai.ollama_base_url || 'http://localhost:11434');
-      setOllamaModelInput(data.ai.ollama_model || 'llama3.2:3b');
+      setCustomAiUrlInput(data.ai.custom_ai_base_url || data.ai.ollama_base_url || '');
+      setCustomAiKeyInput(data.ai.custom_ai_api_key || '');
+      setCustomAiModelInput(data.ai.custom_ai_model || data.ai.ollama_model || 'gpt-4o-mini');
       setDefaultModelInput(data.ai.default_model || 'gemini-2.0-flash');
 
       // Populate RAG
@@ -126,8 +129,10 @@ export default function SettingsPage() {
       setSaving(true);
       const payload: any = {
         ai: {
-          ollama_base_url: ollamaUrlInput.trim(),
-          ollama_model: ollamaModelInput.trim(),
+          custom_ai_base_url: customAiUrlInput.trim(),
+          custom_ai_model: customAiModelInput.trim(),
+          ollama_base_url: customAiUrlInput.trim(),
+          ollama_model: customAiModelInput.trim(),
           default_model: defaultModelInput,
           rag_chunk_size: chunkSize,
           rag_chunk_overlap: chunkOverlap,
@@ -143,11 +148,15 @@ export default function SettingsPage() {
       if (isEditingGroq) {
         payload.ai.groq_api_key = groqKeyInput.trim();
       }
+      if (isEditingCustomAiKey) {
+        payload.ai.custom_ai_api_key = customAiKeyInput.trim();
+      }
 
       await updateUserSettings(payload);
       flashToast('AI & RAG settings saved successfully!');
       setIsEditingGemini(false);
       setIsEditingGroq(false);
+      setIsEditingCustomAiKey(false);
       await loadSettings();
     } catch (err: any) {
       flashToast(`Error saving settings: ${err.message || err}`);
@@ -231,16 +240,18 @@ export default function SettingsPage() {
     setTestingOllama(true);
     setOllamaTestResult(null);
     try {
+      const keyToSend = isEditingCustomAiKey ? customAiKeyInput.trim() : undefined;
       const res = await testAiKey({
-        provider: 'ollama',
-        base_url: ollamaUrlInput.trim(),
-        model: ollamaModelInput.trim(),
+        provider: 'custom',
+        base_url: customAiUrlInput.trim(),
+        api_key: keyToSend,
+        model: customAiModelInput.trim(),
       });
-      setOllamaTestResult(res);
+      setCustomAiTestResult(res);
     } catch (err: any) {
-      setOllamaTestResult({ valid: false, message: err.message || 'Verification failed' });
+      setCustomAiTestResult({ valid: false, message: err.message || 'Verification failed' });
     } finally {
-      setTestingOllama(false);
+      setTestingCustomAi(false);
     }
   };
 
@@ -311,12 +322,6 @@ export default function SettingsPage() {
           </Link>
           <div className="settings-topbar-title">
             <h2>Workspace & AI Settings</h2>
-          </div>
-          <div className="settings-topbar-actions">
-            <Link href="/chat" className="settings-chat-link">
-              <span>Open AI Chat</span>
-              <span>✨</span>
-            </Link>
           </div>
         </header>
 
@@ -579,34 +584,63 @@ export default function SettingsPage() {
                     <div className="settings-card">
                       <div className="settings-card-header">
                         <div className="settings-card-title-row">
-                          <span className="settings-provider-badge ollama">Local</span>
-                          <h4>Ollama Local Engine</h4>
+                          <span className="settings-provider-badge custom-ai">Custom AI</span>
+                          <h4>Custom AI & Local Engine</h4>
                         </div>
-                        <span className="settings-status-tag local">Zero-Cost Offline</span>
+                        <span className="settings-status-tag">Flexible Endpoint</span>
                       </div>
 
                       <p className="settings-card-desc">
-                        Connect to your local Ollama daemon for 100% private, offline LLM inference.
+                        Connect to any OpenAI-compatible API (OpenAI, DeepSeek, OpenRouter, vLLM, LM Studio) or your local Ollama daemon.
                       </p>
+
+                      <div className="settings-field-group" style={{ marginBottom: '12px' }}>
+                        <label>AI API Base URL</label>
+                        <input
+                          type="text"
+                          value={customAiUrlInput}
+                          onChange={(e) => setCustomAiUrlInput(e.target.value)}
+                          placeholder="e.g. https://api.openai.com/v1, https://openrouter.ai/api/v1, or http://localhost:11434"
+                          className="settings-text-input"
+                        />
+                      </div>
 
                       <div className="settings-grid-two">
                         <div className="settings-field-group">
-                          <label>Ollama Base URL</label>
-                          <input
-                            type="text"
-                            value={ollamaUrlInput}
-                            onChange={(e) => setOllamaUrlInput(e.target.value)}
-                            placeholder="http://localhost:11434"
-                            className="settings-text-input"
-                          />
+                          <label>API Key / Bearer Token (Optional for Local)</label>
+                          <div className="settings-input-btn-group">
+                            <input
+                              type="password"
+                              value={customAiKeyInput}
+                              onChange={(e) => {
+                                setCustomAiKeyInput(e.target.value);
+                                setIsEditingCustomAiKey(true);
+                              }}
+                              placeholder={isEditingCustomAiKey ? 'sk-...' : (customAiKeyInput || 'Optional (sk-...)')}
+                              className="settings-text-input"
+                            />
+                            {customAiKeyInput && !isEditingCustomAiKey && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsEditingCustomAiKey(true);
+                                  setCustomAiKeyInput('');
+                                }}
+                                className="settings-btn-inline"
+                              >
+                                Change
+                              </button>
+                            )}
+                          </div>
                         </div>
+
                         <div className="settings-field-group">
-                          <label>Ollama Model Name</label>
+                          <label>Model Identifier</label>
                           <input
                             type="text"
-                            value={ollamaModelInput}
-                            onChange={(e) => setOllamaModelInput(e.target.value)}
-                            placeholder="llama3.2:3b"
+                            value={customAiModelInput}
+                            onChange={(e) => setCustomAiModelInput(e.target.value)}
+                            placeholder="e.g. gpt-4o-mini, deepseek-chat, or llama3.2:3b"
                             className="settings-text-input"
                           />
                         </div>
@@ -615,16 +649,16 @@ export default function SettingsPage() {
                       <div style={{ marginTop: '12px' }}>
                         <button
                           type="button"
-                          onClick={handleTestOllama}
-                          disabled={testingOllama}
+                          onClick={handleTestCustomAi}
+                          disabled={testingCustomAi}
                           className="settings-btn test"
                         >
-                          {testingOllama ? 'Pinging Ollama...' : 'Ping Ollama Daemon'}
+                          {testingCustomAi ? 'Testing Connection...' : 'Test AI Connection'}
                         </button>
-                        {ollamaTestResult && (
-                          <div className={`settings-test-badge ${ollamaTestResult.valid ? 'success' : 'error'}`}>
-                            {ollamaTestResult.valid ? '✓ ' : '✕ '}
-                            {ollamaTestResult.message}
+                        {customAiTestResult && (
+                          <div className={`settings-test-badge ${customAiTestResult.valid ? 'success' : 'error'}`}>
+                            {customAiTestResult.valid ? '✓ ' : '✕ '}
+                            {customAiTestResult.message}
                           </div>
                         )}
                       </div>

@@ -10,7 +10,13 @@ from pydantic import BaseModel, Field
 from ..auth import get_current_user_id
 from ..database import note_chunks_collection, notes_collection
 from .cache import get_cached_rag_response, set_cached_rag_response
-from .providers import generate_chat_completion, get_available_models, stream_chat_completion
+from .providers import (
+    build_copilot_system_prompt,
+    generate_chat_completion,
+    get_available_models,
+    is_conversational_greeting,
+    stream_chat_completion,
+)
 from .retriever import (
     RetrievedChunk,
     index_all_user_notes,
@@ -64,14 +70,17 @@ async def query_rag(
     if cached and not payload.stream:
         return cached
 
-    # Retrieve relevant workspace chunks
-    chunks: list[RetrievedChunk] = retrieve_relevant_chunks(
-        query=payload.query,
-        owner_id=user_id,
-        top_k=payload.top_k,
-        category_filter=payload.category_filter,
-        note_id_filter=payload.note_id_filter,
-    )
+    # Retrieve relevant workspace chunks if not greeting
+    is_greeting = is_conversational_greeting(payload.query)
+    chunks: list[RetrievedChunk] = []
+    if not is_greeting:
+        chunks = retrieve_relevant_chunks(
+            query=payload.query,
+            owner_id=user_id,
+            top_k=payload.top_k,
+            category_filter=payload.category_filter,
+            note_id_filter=payload.note_id_filter,
+        )
 
     citations = [
         {
@@ -91,13 +100,7 @@ async def query_rag(
         context_blocks.append(f"--- Note Reference [{idx}]: \"{c.note_title}\" ---\n{c.text}")
     context_str = "\n\n".join(context_blocks)
 
-    system_instruction = (
-        "You are Noteform AI, an intelligent workspace copilot. "
-        "Answer the user's question accurately using ONLY the retrieved workspace notes below. "
-        "Cite the relevant note titles in brackets like [Title] whenever stating facts from them. "
-        "If the notes do not contain sufficient information to answer the question, state that clearly.\n\n"
-        f"Retrieved Workspace Context:\n{context_str or 'No relevant notes found in workspace.'}"
-    )
+    system_instruction = build_copilot_system_prompt(context_str)
 
     messages = [
         {"role": "system", "content": system_instruction},
@@ -174,7 +177,9 @@ async def get_rag_status(user_id: str = Depends(get_current_user_id)):
     owner_filter = {"$in": [user_id, ObjectId(user_id)]} if ObjectId.is_valid(user_id) else user_id
     total_notes = notes_collection().count_documents({"owner_id": owner_filter})
     total_chunks = note_chunks_collection().count_documents({"owner_id": user_id})
-    models = get_available_models()
+    from ..settings_router import get_user_ai_config
+    user_ai = get_user_ai_config(user_id)
+    models = get_available_models(user_ai)
 
     return {
         "status": "active",

@@ -86,13 +86,23 @@ def validate_record_values(columns: list[dict[str, Any]], values: dict[str, Any]
     return validated
 
 
+def _format_datetime(val: Any) -> str:
+    if val is None:
+        return datetime.utcnow().isoformat()
+    if isinstance(val, str):
+        return val
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
+
+
 def serialize_table(table: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(table["_id"]),
         "name": table["name"],
         "columns": table.get("columns", []),
-        "created_at": table["created_at"].isoformat(),
-        "updated_at": table["updated_at"].isoformat(),
+        "created_at": _format_datetime(table.get("created_at")),
+        "updated_at": _format_datetime(table.get("updated_at")),
     }
 
 
@@ -102,6 +112,6 @@ def serialize_record(record: dict[str, Any]) -> dict[str, Any]:
         "table_id": str(record["table_id"]),
         "values": record.get("values", {}),
         "version": int(record.get("version", 1)),
-        "created_at": record["created_at"].isoformat(),
-        "updated_at": record["updated_at"].isoformat(),
+        "created_at": _format_datetime(record.get("created_at")),
+        "updated_at": _format_datetime(record.get("updated_at")),
     }

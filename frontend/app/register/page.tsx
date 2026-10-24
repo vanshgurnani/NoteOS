@@ -21,7 +21,7 @@ export default function RegisterPage() {
         body: JSON.stringify(form),
       });
       saveSession(result.token, result.user);
-      router.push('/');
+      router.push('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create account');
     } finally {

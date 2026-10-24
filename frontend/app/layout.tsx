@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [{ url: '/icons/noteos.svg', type: 'image/svg+xml' }],
-    apple: [{ url: '/icons/noteos.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '192x192', type: 'image/png' }],
   },
 };
 

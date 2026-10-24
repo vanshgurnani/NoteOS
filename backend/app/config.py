@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import os
+from typing import Optional
+
 
 
 class Settings:
@@ -7,25 +11,52 @@ class Settings:
     mongo_db = os.getenv("MONGO_DB", "noteform")
     jwt_secret = os.getenv("JWT_SECRET", "change-me-in-production")
     jwt_expiry_minutes = int(os.getenv("JWT_EXPIRY_MINUTES", "10080"))
-    # Always permit the production Vercel frontend, local development, and Render frontend
+    # Permitted origins for frontend connections
     _default_origins = [
         "https://noteform-blush.vercel.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8000",
         "https://noteform-1.onrender.com",
     ]
     _env_origins = []
-    for origin in os.getenv("CORS_ORIGINS", "").split(","):
-        cleaned = origin.strip().rstrip("/")
-        if not cleaned:
-            continue
-        if cleaned.startswith("http://") or cleaned.startswith("https://"):
-            _env_origins.append(cleaned)
+    _raw_cors = os.getenv("CORS_ORIGINS", "").strip()
+    if _raw_cors == "*":
+        cors_origins = ["*"]
+    else:
+        for origin in _raw_cors.split(","):
+            cleaned = origin.strip().rstrip("/")
+            if not cleaned:
+                continue
+            if cleaned == "*":
+                _env_origins = ["*"]
+                break
+            if cleaned.startswith("http://") or cleaned.startswith("https://"):
+                _env_origins.append(cleaned)
+            else:
+                _env_origins.append(f"https://{cleaned}")
+                _env_origins.append(f"http://{cleaned}")
+        if "*" in _env_origins:
+            cors_origins = ["*"]
         else:
-            _env_origins.append(f"https://{cleaned}")
-            _env_origins.append(f"http://{cleaned}")
-    cors_origins = list(dict.fromkeys([o.rstrip("/") for o in _default_origins] + _env_origins))
-    cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"https://.*(\.vercel\.app|\.onrender\.com)")
+            cors_origins = list(dict.fromkeys([o.rstrip("/") for o in _default_origins] + _env_origins))
+
+    # Match any valid http/https origin by default (Render, Vercel, localhost, custom domains)
+    cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"^https?:\/\/.*$")
+
+    def is_origin_allowed(self, origin: Optional[str]) -> bool:
+        if not origin:
+            return True
+        if "*" in self.cors_origins:
+            return True
+        if origin.rstrip("/") in self.cors_origins:
+            return True
+        if self.cors_origin_regex:
+            import re
+            return bool(re.match(self.cors_origin_regex, origin))
+        return False
     mcp_api_key = os.getenv("MCP_API_KEY", "")
     _raw_mcp_url = os.getenv("MCP_PUBLIC_URL", "https://mcp.example.com/mcp").strip().rstrip("/")
     if _raw_mcp_url and not (_raw_mcp_url.startswith("http://") or _raw_mcp_url.startswith("https://")):

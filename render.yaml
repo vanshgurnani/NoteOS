@@ -22,7 +22,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN_REGEX
-        value: "https://.*(\\.vercel\\.app|\\.onrender\\.com)"
+        value: "^https?:\\/\\/.*$"
       - key: CORS_ORIGINS
         fromService:
           type: web

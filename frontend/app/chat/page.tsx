@@ -299,6 +299,80 @@ export default function ChatPage() {
     setTimeout(() => setCopiedMsgId(null), 2000);
   };
 
+  const handleDownloadChatMd = () => {
+    if (!activeConv || activeConv.messages.length === 0) {
+      alert('Conversation has no messages to export.');
+      return;
+    }
+    const safeTitle = (activeConv.title || 'chat-response')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-|-$/g, '');
+    const filename = `${safeTitle || 'noteos-chat'}.md`;
+
+    const lines = [
+      `# ${activeConv.title || 'NoteOS Copilot Chat'}`,
+      `**Export Date:** ${new Date().toISOString()}`,
+      `**Model:** ${activeConv.model || selectedModel}`,
+      '',
+      '---',
+      '',
+    ];
+
+    activeConv.messages.forEach((m) => {
+      const sender = m.role === 'user' ? '👤 **User**' : '🤖 **NoteOS Copilot**';
+      lines.push(`### ${sender} (${new Date(m.created_at).toLocaleTimeString()})`);
+      lines.push('');
+      lines.push(m.content);
+      lines.push('');
+      if (m.citations && m.citations.length > 0) {
+        lines.push('> **Referenced Sources:**');
+        m.citations.forEach((c) => {
+          lines.push(`> - [${c.note_title}]: "${c.snippet.slice(0, 140)}..."`);
+        });
+        lines.push('');
+      }
+      lines.push('---');
+      lines.push('');
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setStatusMessage(`Downloaded ${filename}!`);
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
+  const handleDownloadMessageMd = (msg: ChatMessage) => {
+    const firstLine = msg.content.split('\n')[0].replace(/^#+\s*/, '').trim();
+    const safeTitle = (firstLine || 'noteos-response')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40);
+    const filename = `${safeTitle || 'chat-response'}.md`;
+
+    const blob = new Blob([msg.content], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setStatusMessage(`Downloaded response as ${filename}!`);
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
   const handleReindex = async () => {
     setIsReindexing(true);
     try {
@@ -489,6 +563,15 @@ export default function ChatPage() {
                 <span>📥 Export to Note</span>
               </button>
 
+              {/* Download as Markdown File */}
+              <button
+                onClick={handleDownloadChatMd}
+                className="chat-export-btn"
+                title="Download this entire conversation as a Markdown (.md) file"
+              >
+                <span>⬇️ Export .md</span>
+              </button>
+
               {/* Settings Link */}
               <Link
                 href="/settings"
@@ -586,6 +669,14 @@ export default function ChatPage() {
                           title="Save this response as an organized note in your workspace"
                         >
                           {savingNoteMsgId === msg.id ? '⏳ Saving Note...' : '📝 Save as Note'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadMessageMd(msg)}
+                          className="chat-msg-action-btn"
+                          title="Download this response directly as a Markdown (.md) file"
+                        >
+                          💾 .md
                         </button>
                         <button
                           type="button"

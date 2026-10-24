@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "NOTE OS",
+  "short_name": "NOTE OS",
+  "description": "A calm workspace for notes, ideas, and recall.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f8f6",
+  "theme_color": "#6f927d",
+  "icons": [
+    {
+      "src": "/icons/noteos.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

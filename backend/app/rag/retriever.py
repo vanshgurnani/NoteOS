@@ -202,8 +202,28 @@ def retrieve_relevant_chunks(
 
     dense_scores.sort(key=lambda x: x[1], reverse=True)
 
-    # 2. Sparse Keyword Matching
-    query_words = set(re.findall(r"\b\w{3,}\b", query.lower()))
+    # 2. Sparse Keyword Matching with Stopword Filtering
+    stopwords = {
+        "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are",
+        "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by",
+        "can", "could", "did", "do", "does", "doing", "down", "during", "each", "few", "for", "from",
+        "further", "had", "has", "have", "having", "he", "her", "here", "hers", "herself", "him", "himself",
+        "his", "how", "i", "if", "in", "into", "is", "it", "its", "itself", "just", "me", "more", "most",
+        "my", "myself", "no", "nor", "not", "now", "of", "off", "on", "once", "only", "or", "other",
+        "our", "ours", "ourselves", "out", "over", "own", "same", "she", "should", "so", "some", "such",
+        "than", "that", "the", "their", "theirs", "them", "themselves", "then", "there", "these", "they",
+        "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "we", "were",
+        "what", "when", "where", "which", "while", "who", "whom", "why", "will", "with", "would", "you",
+        "your", "yours", "yourself", "yourselves",
+        # Task & action words that should not trigger sparse note matches
+        "add", "adds", "added", "create", "created", "creating", "draft", "drafts", "drafting",
+        "make", "makes", "making", "need", "needs", "needed", "write", "writes", "writing", "written",
+        "give", "gives", "giving", "tell", "tells", "telling", "show", "shows", "showing", "help",
+        "content", "note", "notes", "please", "want", "wants", "find", "get", "put", "use", "using",
+    }
+    raw_words = set(re.findall(r"\b[a-zA-Z0-9_\-]{3,}\b", query.lower()))
+    query_words = {w for w in raw_words if w not in stopwords} or raw_words
+
     sparse_scores: list[tuple[dict[str, Any], float]] = []
 
     for doc in all_docs:
@@ -219,13 +239,23 @@ def retrieve_relevant_chunks(
 
     sparse_scores.sort(key=lambda x: x[1], reverse=True)
 
+    max_dense = dense_scores[0][1] if dense_scores else 0.0
+    max_sparse = max((s[1] for s in sparse_scores), default=0.0)
+
+    # Relevance guard: If no meaningful keyword hits and low semantic similarity,
+    # the query is general/unrelated to workspace notes. Do not retrieve false positives.
+    if max_sparse == 0 and max_dense < 0.28:
+        return []
+
     # 3. Reciprocal Rank Fusion (RRF)
     # score = (0.5 * 1 / (60 + rank_dense)) + (0.5 * 1 / (60 + rank_sparse))
     K_RRF = 60
     rrf_scores: dict[str, float] = {}
     doc_map: dict[str, dict[str, Any]] = {}
 
-    for rank, (doc, _) in enumerate(dense_scores):
+    for rank, (doc, sim) in enumerate(dense_scores):
+        if sim < 0.15 and max_sparse == 0:
+            continue
         doc_id = str(doc["_id"])
         doc_map[doc_id] = doc
         rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + 0.5 * (1.0 / (K_RRF + rank + 1))

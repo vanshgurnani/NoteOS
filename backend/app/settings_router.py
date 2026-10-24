@@ -38,6 +38,9 @@ def is_redacted_value(val: Optional[str]) -> bool:
 class AISettingsPayload(BaseModel):
     gemini_api_key: Optional[str] = None
     groq_api_key: Optional[str] = None
+    custom_ai_base_url: Optional[str] = None
+    custom_ai_api_key: Optional[str] = None
+    custom_ai_model: Optional[str] = None
     ollama_base_url: Optional[str] = None
     ollama_model: Optional[str] = None
     default_model: Optional[str] = None
@@ -65,7 +68,7 @@ class ChangePasswordRequest(BaseModel):
 
 
 class TestKeyRequest(BaseModel):
-    provider: str  # 'gemini' | 'groq' | 'ollama'
+    provider: str  # 'gemini' | 'groq' | 'custom' | 'ollama'
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     model: Optional[str] = None
@@ -90,6 +93,10 @@ async def get_settings(user: dict = Depends(current_user)):
     redacted_ai = {
         "gemini_api_key": redact_key(ai_saved.get("gemini_api_key")),
         "groq_api_key": redact_key(ai_saved.get("groq_api_key")),
+        "custom_ai_base_url": ai_saved.get("custom_ai_base_url") or ai_saved.get("ollama_base_url") or settings.custom_ai_base_url,
+        "custom_ai_api_key": redact_key(ai_saved.get("custom_ai_api_key")),
+        "custom_ai_model": ai_saved.get("custom_ai_model") or ai_saved.get("ollama_model") or settings.custom_ai_model or "gpt-4o-mini",
+        "has_custom_ai": bool(ai_saved.get("custom_ai_base_url")),
         "ollama_base_url": ai_saved.get("ollama_base_url", settings.ollama_base_url),
         "ollama_model": ai_saved.get("ollama_model", settings.ollama_model),
         "default_model": ai_saved.get("default_model", settings.default_ai_model),
@@ -145,7 +152,7 @@ async def update_settings(payload: UpdateSettingsRequest, user: dict = Depends(c
     if payload.ai:
         ai_data = payload.ai.dict(exclude_unset=True)
         for key, val in ai_data.items():
-            if key in ("gemini_api_key", "groq_api_key"):
+            if key in ("gemini_api_key", "groq_api_key", "custom_ai_api_key"):
                 # If key is redacted (user didn't change it), keep current stored key
                 if is_redacted_value(val):
                     continue
@@ -185,6 +192,8 @@ async def test_ai_key(payload: TestKeyRequest, user: dict = Depends(current_user
             key_to_test = ai_saved.get("gemini_api_key") or settings.gemini_api_key
         elif provider == "groq":
             key_to_test = ai_saved.get("groq_api_key") or settings.groq_api_key
+        elif provider in ("custom", "custom_ai"):
+            key_to_test = ai_saved.get("custom_ai_api_key") or settings.custom_ai_api_key
 
     if provider == "gemini":
         if not key_to_test:
@@ -230,8 +239,32 @@ async def test_ai_key(payload: TestKeyRequest, user: dict = Depends(current_user
         except Exception as e:
             return {"valid": False, "provider": "groq", "message": f"Connection failed: {str(e)}"}
 
-    elif provider == "ollama":
-        base_url = (payload.base_url or ai_saved.get("ollama_base_url") or settings.ollama_base_url).rstrip("/")
+    elif provider in ("custom", "custom_ai", "ollama"):
+        raw_url = payload.base_url or ai_saved.get("custom_ai_base_url") or ai_saved.get("ollama_base_url") or settings.custom_ai_base_url or settings.ollama_base_url or "http://localhost:11434"
+        base_url = raw_url.rstrip("/")
+        model = payload.model or ai_saved.get("custom_ai_model") or ai_saved.get("ollama_model") or settings.custom_ai_model or settings.ollama_model or "gpt-4o-mini"
+        
+        headers = {"Content-Type": "application/json"}
+        if key_to_test:
+            headers["Authorization"] = f"Bearer {key_to_test}"
+
+        # 1. Test OpenAI-compatible /models endpoint
+        try:
+            models_url = f"{base_url}/models" if base_url.endswith("/v1") else f"{base_url}/v1/models"
+            res = requests.get(models_url, headers=headers, timeout=6)
+            if res.status_code == 200:
+                data = res.json()
+                models_list = [m.get("id") or m.get("name") for m in data.get("data", []) or data.get("models", [])]
+                display_models = ", ".join(filter(None, models_list[:4])) or model
+                return {
+                    "valid": True,
+                    "provider": "custom",
+                    "message": f"Custom AI API connection verified! Models found: {display_models}",
+                }
+        except Exception:
+            pass
+
+        # 2. Test Ollama native /api/tags endpoint
         try:
             res = requests.get(f"{base_url}/api/tags", timeout=5)
             if res.status_code == 200:
@@ -239,19 +272,37 @@ async def test_ai_key(payload: TestKeyRequest, user: dict = Depends(current_user
                 models = [m.get("name") for m in data.get("models", [])]
                 return {
                     "valid": True,
-                    "provider": "ollama",
-                    "message": f"Ollama is running locally! Models found: {', '.join(models[:4]) or 'none'}",
+                    "provider": "custom",
+                    "message": f"Ollama connection verified! Models found: {', '.join(models[:4]) or model}",
+                }
+        except Exception:
+            pass
+
+        # 3. Test ping chat completion
+        try:
+            chat_url = f"{base_url}/chat/completions" if "/v1" in base_url or base_url.endswith("/chat/completions") else f"{base_url}/v1/chat/completions"
+            test_body = {
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 5,
+            }
+            res = requests.post(chat_url, json=test_body, headers=headers, timeout=8)
+            if res.status_code in (200, 201):
+                return {
+                    "valid": True,
+                    "provider": "custom",
+                    "message": f"Custom AI endpoint verified successfully with model '{model}'!",
                 }
             return {
                 "valid": False,
-                "provider": "ollama",
-                "message": f"Ollama returned HTTP {res.status_code}",
+                "provider": "custom",
+                "message": f"Endpoint returned HTTP {res.status_code}: {res.text[:140]}",
             }
         except Exception as e:
             return {
                 "valid": False,
-                "provider": "ollama",
-                "message": f"Could not reach Ollama at {base_url} (is 'ollama serve' running?): {str(e)}",
+                "provider": "custom",
+                "message": f"Could not reach AI endpoint at {base_url}: {str(e)}",
             }
 
     raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")

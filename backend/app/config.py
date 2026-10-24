@@ -74,6 +74,9 @@ class Settings:
     ]
     ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+    custom_ai_base_url = os.getenv("CUSTOM_AI_BASE_URL", os.getenv("OLLAMA_BASE_URL", "")).rstrip("/")
+    custom_ai_api_key = os.getenv("CUSTOM_AI_API_KEY", "")
+    custom_ai_model = os.getenv("CUSTOM_AI_MODEL", os.getenv("OLLAMA_MODEL", "gpt-4o-mini"))
     default_ai_model = os.getenv("DEFAULT_AI_MODEL", "gemini-2.0-flash")
     rag_chunk_size = int(os.getenv("RAG_CHUNK_SIZE", "300"))
     rag_chunk_overlap = int(os.getenv("RAG_CHUNK_OVERLAP", "40"))

@@ -9,6 +9,7 @@ import {
   ConversationDetail,
   ConversationSummary,
   createConversation,
+  createNoteFromMessage,
   deleteConversation,
   exportConversationToNote,
   getConversation,
@@ -34,6 +35,9 @@ export default function ChatPage() {
   const [currentStreamText, setCurrentStreamText] = useState('');
   const [currentCitations, setCurrentCitations] = useState<RagCitation[]>([]);
   const [selectedCitation, setSelectedCitation] = useState<RagCitation | null>(null);
+  const [createdNoteAlert, setCreatedNoteAlert] = useState<{ id: string; title: string } | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [savingNoteMsgId, setSavingNoteMsgId] = useState<string | null>(null);
 
   const [models, setModels] = useState<AiModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('gemini-2.0-flash');
@@ -274,6 +278,27 @@ export default function ChatPage() {
     }
   };
 
+  const handleSaveMessageAsNote = async (msg: ChatMessage) => {
+    if (!activeConv) return;
+    setSavingNoteMsgId(msg.id);
+    try {
+      const res = await createNoteFromMessage(activeConv.id, msg.id);
+      setCreatedNoteAlert({ id: res.note_id, title: res.title });
+      setStatusMessage(`✅ Saved to notes: "${res.title}"!`);
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (err: any) {
+      alert(`Could not save note: ${err.message || err}`);
+    } finally {
+      setSavingNoteMsgId(null);
+    }
+  };
+
+  const handleCopyMessage = (msgId: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMsgId(msgId);
+    setTimeout(() => setCopiedMsgId(null), 2000);
+  };
+
   const handleReindex = async () => {
     setIsReindexing(true);
     try {
@@ -475,18 +500,44 @@ export default function ChatPage() {
             </div>
           </header>
 
+          {/* Created Note Alert Banner */}
+          {createdNoteAlert && (
+            <div className="chat-created-note-banner">
+              <span className="chat-created-note-icon">🎉</span>
+              <span className="chat-created-note-text">
+                Note created: <strong>{createdNoteAlert.title}</strong>
+              </span>
+              <Link href={`/?note=${createdNoteAlert.id}`} className="chat-created-note-link">
+                Open Note in Editor →
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCreatedNoteAlert(null)}
+                className="chat-created-note-close"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Messages Scroll View */}
           <div className="chat-messages-container">
             {(!activeConv || activeConv.messages.length === 0) && !isStreaming ? (
               <div className="chat-welcome-card">
                 <div className="chat-welcome-icon">✨</div>
-                <h2>Ask Noteform AI Copilot</h2>
+                <h2>Ask NoteOS Copilot</h2>
                 <p>
                   Ask questions across all your notes, synthesize insights, draft content, or brainstorm.
                   Powered by local hybrid RAG with verifiable citations.
                 </p>
 
                 <div className="chat-suggestion-grid">
+                  <button
+                    onClick={() => setInputMessage('Draft a complete Cheese Burst Pizza recipe with secret liquid cheese center and step-by-step baking instructions')}
+                    className="chat-suggestion-chip"
+                  >
+                    🍕 Draft Cheese Burst Pizza Recipe
+                  </button>
                   <button
                     onClick={() => setInputMessage('Summarize the most important ideas in my recent notes')}
                     className="chat-suggestion-chip"
@@ -498,12 +549,6 @@ export default function ChatPage() {
                     className="chat-suggestion-chip"
                   >
                     ✅ Extract action items & deadlines
-                  </button>
-                  <button
-                    onClick={() => setInputMessage('What architectural design decisions have been documented so far?')}
-                    className="chat-suggestion-chip"
-                  >
-                    🏗️ Architecture & decisions overview
                   </button>
                   <button
                     onClick={() => setInputMessage('Draft a concise executive report based on my workspace')}
@@ -522,13 +567,36 @@ export default function ChatPage() {
 
                   <div className="chat-message-body">
                     <div className="chat-message-sender">
-                      <span>{msg.role === 'user' ? 'You' : 'Noteform AI'}</span>
+                      <span>{msg.role === 'user' ? 'You' : 'NoteOS Copilot'}</span>
                       <span className="chat-message-time">
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 
                     <div className="chat-message-text">{msg.content}</div>
+
+                    {/* Action Bar for Assistant Messages */}
+                    {msg.role === 'assistant' && (
+                      <div className="chat-msg-actions-bar">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveMessageAsNote(msg)}
+                          disabled={savingNoteMsgId === msg.id}
+                          className="chat-msg-action-btn note"
+                          title="Save this response as an organized note in your workspace"
+                        >
+                          {savingNoteMsgId === msg.id ? '⏳ Saving Note...' : '📝 Save as Note'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyMessage(msg.id, msg.content)}
+                          className="chat-msg-action-btn"
+                          title="Copy message to clipboard"
+                        >
+                          {copiedMsgId === msg.id ? '✓ Copied!' : '📋 Copy'}
+                        </button>
+                      </div>
+                    )}
 
                     {/* Citations Chips */}
                     {msg.citations && msg.citations.length > 0 && (
@@ -557,7 +625,7 @@ export default function ChatPage() {
                 <div className="chat-message-avatar">🤖</div>
                 <div className="chat-message-body">
                   <div className="chat-message-sender">
-                    <span>Noteform AI</span>
+                    <span>NoteOS Copilot</span>
                     <span className="chat-streaming-indicator">Generating...</span>
                   </div>
 
@@ -587,8 +655,44 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Prompt Composer */}
+          {/* Prompt Composer & Quick Tools */}
           <div className="chat-composer-wrap">
+            <div className="chat-tools-bar">
+              <span className="chat-tools-label">⚡ Notes Tools:</span>
+              <button
+                type="button"
+                onClick={() => setInputMessage('Draft a complete Cheese Burst Pizza recipe with secret liquid cheese center and step-by-step baking instructions')}
+                className="chat-tool-btn"
+                title="Draft Cheese Burst Pizza recipe"
+              >
+                🍕 Pizza Recipe
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMessage('Draft a comprehensive workspace note outline about: ')}
+                className="chat-tool-btn"
+                title="Draft a new workspace note"
+              >
+                📝 Draft Note
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMessage('What are the key goals, decisions, and action items in my notes?')}
+                className="chat-tool-btn"
+                title="Query notes synthesis"
+              >
+                🔍 Search Notes
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/tables')}
+                className="chat-tool-btn"
+                title="Go to structured tables"
+              >
+                📊 Tables
+              </button>
+            </div>
+
             <div className="chat-composer-box">
               <textarea
                 ref={textareaRef}
@@ -600,7 +704,7 @@ export default function ChatPage() {
                     handleSendMessage();
                   }
                 }}
-                placeholder="Ask Noteform Copilot anything... (Enter to send, Shift+Enter for new line)"
+                placeholder="Ask NoteOS Copilot anything... (Enter to send, Shift+Enter for new line)"
                 className="chat-composer-input"
                 rows={2}
               />

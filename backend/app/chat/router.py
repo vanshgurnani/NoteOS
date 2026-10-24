@@ -239,10 +239,10 @@ async def send_message(
     system_prompt = (
         "You are NoteOS Copilot, an intelligent, conversational, and highly capable workspace assistant.\n\n"
         "### Core Instructions:\n"
-        "1. **Conversational & Friendly:** For greetings (e.g., 'hi', 'hello', 'who are you?'), greet the user warmly and concisely explain how you can help them with their notes, research, or writing. Do not cite notes when greeting.\n"
-        "2. **Workspace Knowledge:** When the user asks questions about their notes, projects, plans, or documents, ground your answer in the retrieved notes below. Cite note titles in brackets like `[Note Title]`.\n"
-        "3. **General Knowledge:** For general topics, writing assistance, brainstorming, or technical questions not in their notes, answer thoughtfully and accurately like a world-class AI assistant.\n"
-        "4. **Format:** Output well-structured Markdown with clean headers, bullet points, and code blocks when helpful.\n\n"
+        "1. **Conversational & Friendly:** For greetings (e.g. 'hi', 'hello', 'who are you?'), greet the user warmly and explain how you can assist them with notes, writing, research, or drafting. Never cite notes for greetings.\n"
+        "2. **Specific Workspace Queries:** ONLY reference and cite workspace notes if the retrieved context is genuinely relevant to the user's specific query. When referencing notes, cite their titles in brackets like `[Note Title]`.\n"
+        "3. **General Knowledge & Drafting:** If the user asks for a recipe, cooking tips, creative writing, draft content, coding, or general questions not related to their workspace notes, answer directly, thoroughly, and conversationally from your general knowledge. NEVER mention or cite unrelated workspace notes.\n"
+        "4. **Format & Actionability:** Output rich, publication-ready Markdown with clean headings, ingredient lists, step-by-step instructions, or code blocks as appropriate.\n\n"
         f"### Retrieved Workspace Context:\n{rag_context or 'No specific workspace notes were retrieved for this query.'}"
     )
 
@@ -353,3 +353,65 @@ async def export_conversation_to_note(
     }
     res = notes_collection().insert_one(new_note)
     return {"note_id": str(res.inserted_id), "title": title}
+
+
+class CreateNoteFromMessageRequest(BaseModel):
+    message_id: str
+    title: Optional[str] = None
+    category: Optional[str] = "General"
+    tags: Optional[list[str]] = []
+
+
+@router.post("/chat/conversations/{conversation_id}/create-note-from-message")
+@router.post("/conversations/{conversation_id}/create-note-from-message")
+async def create_note_from_message(
+    conversation_id: str,
+    payload: CreateNoteFromMessageRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    try:
+        msg = chat_messages_collection().find_one({
+            "_id": ObjectId(payload.message_id),
+            "conversation_id": conversation_id,
+            "owner_id": user_id,
+        })
+    except Exception:
+        msg = None
+
+    if not msg:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+
+    content = msg.get("content", "").strip()
+
+    title = payload.title
+    if not title:
+        first_line = content.split("\n")[0].strip()
+        first_line_clean = re.sub(r"^#+\s*", "", first_line).strip()
+        title = first_line_clean[:60] if first_line_clean else "Draft from AI Chat"
+
+    now = datetime.datetime.utcnow()
+    new_note = {
+        "title": title,
+        "content": content,
+        "category": payload.category or "General",
+        "tags": payload.tags or ["ai-draft"],
+        "owner_id": user_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    res = notes_collection().insert_one(new_note)
+    note_id = str(res.inserted_id)
+
+    try:
+        index_note(
+            note_id=note_id,
+            owner_id=user_id,
+            title=title,
+            content=content,
+            category=new_note["category"],
+            tags=new_note["tags"],
+        )
+    except Exception:
+        pass
+
+    return {"note_id": note_id, "title": title}

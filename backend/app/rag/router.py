@@ -176,7 +176,9 @@ async def get_rag_status(user_id: str = Depends(get_current_user_id)):
     owner_filter = {"$in": [user_id, ObjectId(user_id)]} if ObjectId.is_valid(user_id) else user_id
     total_notes = notes_collection().count_documents({"owner_id": owner_filter})
     total_chunks = note_chunks_collection().count_documents({"owner_id": user_id})
-    models = get_available_models()
+    from ..settings_router import get_user_ai_config
+    user_ai = get_user_ai_config(user_id)
+    models = get_available_models(user_ai)
 
     return {
         "status": "active",

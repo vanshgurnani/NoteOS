@@ -3,9 +3,9 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import MarkdownEditor from '@/app/components/MarkdownEditor';
-import PagesTree from '@/app/components/PagesTree';
-import AiCopilotDrawer from '@/app/components/AiCopilotDrawer';
+import MarkdownEditor from './components/MarkdownEditor';
+import PagesTree from './components/PagesTree';
+import AiCopilotDrawer from './components/AiCopilotDrawer';
 import {
   ApiError,
   api,

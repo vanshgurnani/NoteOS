@@ -84,7 +84,7 @@ services:
     rootDir: mailer
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    plan: free
+    plan: starter
     region: oregon
     healthCheckPath: /health
     envVars:

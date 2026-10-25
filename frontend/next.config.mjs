@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const rawBackendUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').trim().replace(/\/$/, '');
+const rawBackendUrl = (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').trim().replace(/\/$/, '');
 const backendUrl = rawBackendUrl.startsWith('http://') || rawBackendUrl.startsWith('https://')
   ? rawBackendUrl
   : `https://${rawBackendUrl}`;

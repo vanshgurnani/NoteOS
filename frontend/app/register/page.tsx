@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, saveSession, User } from '@/lib/api';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,6 +40,9 @@ export default function RegisterPage() {
         <p className="notion-auth-subtitle">Start thinking and writing in your private workspace</p>
 
         {error && <div className="notion-auth-error" role="alert">{error}</div>}
+
+        <div className="notion-auth-google"><GoogleSignInButton /></div>
+        <div className="notion-auth-divider"><span>or continue with email</span></div>
 
         <form onSubmit={submit} className="notion-auth-form">
           <label className="notion-auth-field">

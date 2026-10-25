@@ -2457,13 +2457,21 @@ export default function Workspace() {
 
               {/* Document Canvas Paper */}
               <div className={`notion-document-paper ${fullWidth ? 'full-width' : ''}`}>
-                {/* Conflict banner if any */}
+                {/* Save recovery actions */}
                 {saveStatus === 'conflict' && (
                   <div className="notion-conflict-banner" role="alert">
                     <p>This page was modified elsewhere. Your changes are preserved here.</p>
                     <div className="notion-conflict-actions">
                       <button type="button" onClick={reloadConflictedNote}>Load latest version</button>
                       <button type="button" onClick={() => { void saveNote(true); }}>Overwrite with mine</button>
+                    </div>
+                  </div>
+                )}
+                {saveStatus === 'error' && (
+                  <div className="notion-conflict-banner" role="alert">
+                    <p>Could not save this page. Your local edits are still here.</p>
+                    <div className="notion-conflict-actions">
+                      <button type="button" onClick={() => { setSaveStatus('dirty'); }}>Retry save</button>
                     </div>
                   </div>
                 )}

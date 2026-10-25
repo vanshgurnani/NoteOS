@@ -21,6 +21,7 @@ class Settings:
         "http://127.0.0.1:5173",
         "http://localhost:8000",
         "https://noteform-1.onrender.com",
+        "https://noteos-frontend.onrender.com",
     ]
     _env_origins = []
     _raw_cors = os.getenv("CORS_ORIGINS", "").strip()

@@ -66,7 +66,7 @@ async def query_rag(
     model = payload.model or user_ai.get("default_model") or "gemini-2.0-flash"
 
     # Check cache first (for non-streaming or initial check)
-    cached = get_cached_rag_response(user_id, payload.query, model)
+    cached = get_cached_rag_response(user_id, payload.query, model, payload.category_filter, payload.note_id_filter)
     if cached and not payload.stream:
         return cached
 
@@ -122,7 +122,7 @@ async def query_rag(
 
             full_answer = "".join(accumulated_answer)
             if full_answer:
-                set_cached_rag_response(user_id, payload.query, model, full_answer, citations)
+                set_cached_rag_response(user_id, payload.query, model, full_answer, citations, category_filter=payload.category_filter, note_id_filter=payload.note_id_filter)
 
             yield "event: done\ndata: [DONE]\n\n"
 
@@ -130,7 +130,7 @@ async def query_rag(
 
     # Non-streaming
     answer = generate_chat_completion(messages, model=model, user_ai_config=user_ai)
-    set_cached_rag_response(user_id, payload.query, model, answer, citations)
+    set_cached_rag_response(user_id, payload.query, model, answer, citations, category_filter=payload.category_filter, note_id_filter=payload.note_id_filter)
 
     return {
         "answer": answer,

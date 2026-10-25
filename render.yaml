@@ -31,11 +31,19 @@ services:
         value: https://noteos-backend.onrender.com/mcp
       # Google Identity Services verifies ID tokens against this OAuth Web Client ID.
       # No Google Client Secret is used by the current GIS credential flow.
-      # Invitation emails are handled by the separate Vercel mailer project.
-      - key: MAILER_API_URL
-        value: https://noteos-mailer.vercel.app/api/v1/email/invitations
-      - key: MAILER_API_KEY
+      # SMTP settings are used to send workspace collaboration invitations.
+      - key: SMTP_HOST
         sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_USE_TLS
+        value: "true"
       - key: APP_URL
         value: https://noteos-frontend.onrender.com
       # Optional AI Provider API Keys (Can also be configured inside NoteOS Settings UI)
@@ -73,3 +81,4 @@ services:
           type: web
           name: noteos-backend
           property: hostport
+

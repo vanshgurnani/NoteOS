@@ -19,6 +19,7 @@ NoteOS is a calm, Notion-inspired personal notes workspace. Users can create, ed
   inline record editing, and workspace-scoped storage.
 - Nested pages with a navigable page tree in each personal workspace.
 - Quick-capture Inbox for thoughts and source links to organize later.
+- Gmail integration with per-user Google OAuth, inbox search, message reading, and sending.
 - Manifest-free Markdown ZIP import/export for Markdown pages and nested folders.
   Imports preserve hierarchy when a folder matches a Markdown page; categories,
   bookmarks, and timestamps are not included. ZIP imports tolerate linked

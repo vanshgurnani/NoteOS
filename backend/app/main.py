@@ -78,12 +78,26 @@ def owner_filter(user: dict) -> dict:
     return {"owner_id": {"$in": [uid, str(uid)]}}
 
 
-def note_or_404(note_id: str, user: dict) -> dict:
+def note_or_404(note_id: str, user: dict, write: bool = False) -> dict:
     if not ObjectId.is_valid(note_id):
         raise HTTPException(status_code=400, detail="Invalid note id")
-    note = notes_collection().find_one({"_id": ObjectId(note_id), **owner_filter(user)})
+    note = notes_collection().find_one({"_id": ObjectId(note_id)})
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
+    if str(note.get("owner_id")) == str(user["_id"]):
+        return note
+    email = (user.get("email") or "").strip().lower()
+    collaborator = next((entry for entry in note.get("collaborators", [])
+                         if entry.get("email", "").strip().lower() == email), None)
+    if not collaborator:
+        raise HTTPException(status_code=404, detail="Note not found")
+    if not user.get("google_id") or user.get("auth_provider") not in {"google", "dual"}:
+        raise HTTPException(status_code=403, detail={
+            "error": "google_auth_required",
+            "message": "Sign in with Google using the invited email address to access this note.",
+        })
+    if write and collaborator.get("role") != "editor":
+        raise HTTPException(status_code=403, detail="You have view-only access to this note")
     return note
 
 
@@ -730,7 +744,7 @@ def update_note(note_id: str, payload: NoteUpdate, user: dict = Depends(current_
         else {"version": {"$exists": False}}
     )
     result = notes_collection().update_one(
-        {"_id": ObjectId(note_id), **owner_filter(user), **version_filter},
+        {"_id": ObjectId(note_id), **version_filter},
         {"$set": changes},
     )
     if result.modified_count != 1:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import secrets
 import smtplib
@@ -14,6 +15,8 @@ from pymongo import ASCENDING
 
 from .auth import current_user
 from .database import db, notes_collection, users_collection
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["collaboration"])
 
@@ -54,12 +57,15 @@ def _note_or_404(note_id: str, user: dict, write: bool = False) -> dict:
 
 
 def _send_invite(email: str, inviter: dict, note: dict, token: str) -> bool:
-    host = os.getenv("SMTP_HOST", "")
-    if not host:
-        return False
+    host = os.getenv("SMTP_HOST", "").strip()
+    username = os.getenv("SMTP_USER", "").strip()
+    password = os.getenv("SMTP_PASSWORD", "").strip()
+    from_email = os.getenv("SMTP_FROM_EMAIL", "").strip() or username
+    if not all((host, username, password, from_email)):
+        raise RuntimeError("SMTP configuration is incomplete: SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM_EMAIL are required")
     message = EmailMessage()
     message["Subject"] = f'{inviter.get("username", "A teammate")} invited you to edit "{note.get("title", "a note")}" on NoteOS'
-    message["From"] = os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USER", ""))
+    message["From"] = from_email
     message["To"] = email
     app_url = os.getenv("APP_URL", "http://localhost:3000").rstrip("/")
     link = f"{app_url}/invite/{token}"
@@ -72,10 +78,8 @@ def _send_invite(email: str, inviter: dict, note: dict, token: str) -> bool:
     with smtplib.SMTP(host, port, timeout=12) as server:
         if os.getenv("SMTP_USE_TLS", "true").lower() == "true":
             server.starttls()
-        username = os.getenv("SMTP_USER", "")
-        password = os.getenv("SMTP_PASSWORD", "")
-        if username:
-            server.login(username, password)
+        server.ehlo()
+        server.login(username, password)
         server.send_message(message)
     return True
 
@@ -118,9 +122,9 @@ def invite_member(note_id: str, payload: InviteCreate, user: dict = Depends(curr
     note["invite_role"] = payload.role
     try:
         email_sent = _send_invite(email, user, note, token)
-    except (OSError, smtplib.SMTPException):
-        # Keep the invite pending so an owner can resend after configuring SMTP.
-        pass
+    except Exception as exc:
+        # Keep the invite pending; log the real failure for Render diagnostics.
+        logger.exception("NOTE OS invitation email delivery failed for %s (%s)", email, type(exc).__name__)
     return {
         "success": True,
         "email": email,

@@ -34,7 +34,6 @@ from .rag.providers import generate_chat_completion
 from .chat.router import router as chat_router
 from .settings_router import router as settings_router
 from .google_auth import router as google_auth_router
-from .gmail_router import router as gmail_router
 from .collaboration import router as collaboration_router
 
 
@@ -71,7 +70,6 @@ app.include_router(chat_router)
 app.include_router(openai_router)
 app.include_router(settings_router)
 app.include_router(google_auth_router)
-app.include_router(gmail_router)
 app.include_router(collaboration_router)
 
 

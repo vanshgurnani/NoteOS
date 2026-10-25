@@ -7,10 +7,6 @@ variable "project_name" {
   type        = string
   default     = "NOTE OS Authentication"
 }
-variable "billing_account" {
-  description = "Billing account ID to attach to the project"
-  type        = string
-}
 variable "org_id" {
   description = "Google Cloud organization ID; leave empty for a personal account"
   type        = string

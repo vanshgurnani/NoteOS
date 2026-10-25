@@ -2887,8 +2887,16 @@ export default function Workspace() {
       {showCommandPalette && (
         <div className="modal-backdrop command-backdrop" onClick={() => setShowCommandPalette(false)}>
           <section className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => event.stopPropagation()}>
+            <div className="command-palette-heading">
+              <div>
+                <span className="command-eyebrow">WORKSPACE SEARCH</span>
+                <strong>Find anything</strong>
+                <small>Search notes, pages, and databases</small>
+              </div>
+              <span className="command-shortcut-hint">⌘ K</span>
+            </div>
             <div className="command-search">
-              <span>⌕</span>
+              <span className="command-search-icon">⌕</span>
               <input
                 ref={commandInputRef}
                 value={commandQuery}
@@ -2908,7 +2916,7 @@ export default function Workspace() {
                     void runCommand(commandItems[commandIndex]);
                   }
                 }}
-                placeholder="Search pages, databases, or run a command…"
+                placeholder="Search by title, content, or database…"
                 aria-label="Search pages or run a command"
               />
               <kbd>ESC</kbd>
@@ -2931,7 +2939,7 @@ export default function Workspace() {
                 </button>
               ))}
             </div>
-            <footer><span>↑↓ Navigate</span><span>↵ Open</span><span>⌘ K Toggle</span></footer>
+            <footer><span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span><kbd>↵</kbd> Open</span><span><kbd>esc</kbd> Close</span></footer>
           </section>
         </div>
       )}

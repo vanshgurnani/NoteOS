@@ -93,6 +93,8 @@ export default function Workspace() {
   const [tables, setTables] = useState<DataTable[]>([]);
   const [loadingTables, setLoadingTables] = useState(true);
   const [selected, setSelected] = useState<Note | null>(null);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [dashboardPrompt, setDashboardPrompt] = useState('');
 
   // Dark Mode State
   const [darkMode, setDarkMode] = useState(false);
@@ -296,8 +298,14 @@ export default function Workspace() {
       }));
       setNotes(loadedNotes);
       const requestedTableId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('table_id') : null;
+      const requestedView = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null;
+      const requestedNoteId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('note') : null;
       const activeNotes = loadedNotes.filter(n => n.category !== 'Trash');
-      if (!requestedTableId && !selected && !selectedTable && activeNotes[0]) {
+      if (requestedView === 'dashboard') {
+        setSelected(null);
+        setSelectedTable(null);
+        setShowDashboard(true);
+      } else if (!requestedTableId && !requestedNoteId && !selected && !selectedTable && activeNotes[0]) {
         setSelected(activeNotes[0]);
       }
     } catch (err) {
@@ -342,6 +350,7 @@ export default function Workspace() {
 
   async function selectTable(table: DataTable | null) {
     if (draftDirty && !await saveNote()) return;
+    setShowDashboard(false);
     setSelected(null);
     setSelectedTable(table);
     setShowAddColPopover(false);
@@ -536,6 +545,19 @@ export default function Workspace() {
   // Active notes vs Trashed notes
   const activeNotes = useMemo(() => notes.filter(n => n.category !== 'Trash'), [notes]);
   const trashedNotes = useMemo(() => notes.filter(n => n.category === 'Trash'), [notes]);
+
+  const totalWorkspaceWords = useMemo(() => {
+    return activeNotes.reduce((acc, note) => {
+      return acc + (note.content ? note.content.trim().split(/\s+/).filter(Boolean).length : 0);
+    }, 0);
+  }, [activeNotes]);
+
+  const timeOfDay = useMemo(() => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'morning';
+    if (hr < 18) return 'afternoon';
+    return 'evening';
+  }, []);
 
   const visibleTableRecords = useMemo(() => {
     if (!tableFilterQuery.trim()) return tableRecords;
@@ -802,7 +824,43 @@ export default function Workspace() {
     return true;
   }
 
+  function openDashboard() {
+    setSelected(null);
+    setSelectedTable(null);
+    setShowDashboard(true);
+    setMobileNavOpen(false);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'dashboard');
+      url.searchParams.delete('note');
+      url.searchParams.delete('table_id');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }
+
+  async function createNoteFromTemplate(tpl: typeof NOTION_TEMPLATES[0]) {
+    setShowDashboard(false);
+    try {
+      const res = await api<{ note: Note }>('/notes', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: tpl.name,
+          content: tpl.content,
+          icon: tpl.icon,
+          category: 'General',
+          tags: ['template'],
+        }),
+      });
+      setNotes(prev => [res.note, ...prev]);
+      setSelected(res.note);
+      flash(`Created new page from ${tpl.name} template`);
+    } catch (err: any) {
+      flash(err.message || 'Could not create note');
+    }
+  }
+
   async function openPage(note: Note): Promise<boolean> {
+    setShowDashboard(false);
     if (!await selectNote(note)) return false;
     setCategory('All notes');
     setSelectedTag(null);
@@ -852,6 +910,7 @@ export default function Workspace() {
   }
 
   async function createNote(parentId: string | null = null) {
+    setShowDashboard(false);
     if (draftDirty && !await saveNote()) return;
     try {
       const result = await api<{ note: Note }>('/notes', {
@@ -1204,6 +1263,17 @@ export default function Workspace() {
 
         {/* Quick Nav Tools */}
         <div className="notion-sidebar-quicklinks">
+          <button
+            type="button"
+            className={`notion-nav-row ${showDashboard && !selected && !selectedTable ? 'active' : ''}`}
+            onClick={openDashboard}
+            title="Open Workspace Dashboard"
+          >
+            <span className="notion-nav-icon">📊</span>
+            <span className="notion-nav-text">Dashboard</span>
+            <span className="notion-nav-pill">Hub</span>
+          </button>
+
           <Link
             href="/chat"
             className="notion-nav-row notion-nav-ai-chat"
@@ -1491,7 +1561,15 @@ export default function Workspace() {
               {user.username}&apos;s space
             </button>
 
-            {selectedTable ? (
+            {showDashboard && !selected && !selectedTable ? (
+              <span className="notion-breadcrumb-segment">
+                <span className="notion-breadcrumb-divider">/</span>
+                <span className="notion-breadcrumb-current">
+                  <span>📊</span>
+                  <span>Dashboard</span>
+                </span>
+              </span>
+            ) : selectedTable ? (
               <span className="notion-breadcrumb-segment">
                 <span className="notion-breadcrumb-divider">/</span>
                 <span className="notion-breadcrumb-item">Databases</span>
@@ -2630,17 +2708,222 @@ export default function Workspace() {
               </div>
             </div>
           ) : (
-            <div className="notion-no-page-selected">
-              <div className="notion-no-page-icon">✦</div>
-              <h2>Select or create a page</h2>
-              <p>Choose an item from the sidebar or start writing something new.</p>
-              <button
-                type="button"
-                className="notion-primary-action-btn"
-                onClick={() => { void createNote(); }}
-              >
-                ＋ New page
-              </button>
+            /* Workspace Dashboard — Calm & Integrated Notion Design */
+            <div className={`notion-document-pane notion-dashboard-pane font-${fontStyle}`}>
+              <div className="notion-dashboard-container">
+                {/* Dashboard Page Icon & Title */}
+                <div className="notion-dashboard-header">
+                  <div className="notion-page-icon-badge" style={{ fontSize: '38px', marginBottom: '8px', cursor: 'default' }}>
+                    📊
+                  </div>
+                  <h1 className="notion-dashboard-title">
+                    Workspace Dashboard
+                  </h1>
+                  <p className="notion-dashboard-greeting">
+                    Good {timeOfDay}, <strong>{user?.username || 'Creator'}</strong> 👋 &nbsp;·&nbsp;
+                    <span className="notion-dashboard-date">
+                      {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </p>
+                </div>
+
+                {/* Calm Stat Metric Cards */}
+                <div className="notion-dashboard-metrics-grid">
+                  <div className="notion-metric-box">
+                    <div className="notion-metric-top">
+                      <span className="notion-metric-icon">📄</span>
+                      <span className="notion-metric-label">Active Notes</span>
+                    </div>
+                    <div className="notion-metric-number">{activeNotes.length}</div>
+                    <div className="notion-metric-sub">
+                      Across {new Set(activeNotes.map(n => n.category)).size} categories
+                    </div>
+                  </div>
+
+                  <div className="notion-metric-box">
+                    <div className="notion-metric-top">
+                      <span className="notion-metric-icon">✍️</span>
+                      <span className="notion-metric-label">Words Drafted</span>
+                    </div>
+                    <div className="notion-metric-number">{totalWorkspaceWords.toLocaleString()}</div>
+                    <div className="notion-metric-sub">
+                      ~{Math.max(1, Math.round(totalWorkspaceWords / 200))} min reading time
+                    </div>
+                  </div>
+
+                  <div className="notion-metric-box">
+                    <div className="notion-metric-top">
+                      <span className="notion-metric-icon">▦</span>
+                      <span className="notion-metric-label">Databases</span>
+                    </div>
+                    <div className="notion-metric-number">{tables.length}</div>
+                    <div className="notion-metric-sub">
+                      Multi-view tables &amp; boards
+                    </div>
+                  </div>
+
+                  <div className="notion-metric-box">
+                    <div className="notion-metric-top">
+                      <span className="notion-metric-icon">⚡</span>
+                      <span className="notion-metric-label">Hybrid RAG</span>
+                    </div>
+                    <div className="notion-metric-number" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className="notion-status-indicator-dot online" />
+                      Ready
+                    </div>
+                    <div className="notion-metric-sub">
+                      Gemini 2.0 &amp; Groq active
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick AI Search & Prompt Bar */}
+                <div className="notion-dashboard-ai-bar">
+                  <span className="notion-dashboard-ai-icon">✨</span>
+                  <input
+                    type="text"
+                    placeholder="Ask Copilot to summarize, outline plans, or draft content..."
+                    value={dashboardPrompt}
+                    onChange={e => setDashboardPrompt(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && dashboardPrompt.trim()) {
+                        router.push(`/chat?prompt=${encodeURIComponent(dashboardPrompt.trim())}`);
+                      }
+                    }}
+                    className="notion-dashboard-ai-input"
+                  />
+                  <button
+                    type="button"
+                    className="notion-dashboard-ai-btn"
+                    onClick={() => {
+                      if (dashboardPrompt.trim()) {
+                        router.push(`/chat?prompt=${encodeURIComponent(dashboardPrompt.trim())}`);
+                      } else {
+                        setShowCopilot(true);
+                      }
+                    }}
+                  >
+                    Ask Copilot ➜
+                  </button>
+                </div>
+
+                {/* Quick Action Tools Bar */}
+                <div className="notion-dashboard-actions-row">
+                  <button
+                    type="button"
+                    className="notion-dash-action-btn"
+                    onClick={() => { void createNote(); }}
+                  >
+                    <span>＋</span> New page
+                  </button>
+                  <button
+                    type="button"
+                    className="notion-dash-action-btn"
+                    onClick={() => setShowCommandPalette(true)}
+                  >
+                    <span>⌕</span> Search (⌘K)
+                  </button>
+                  <button
+                    type="button"
+                    className="notion-dash-action-btn"
+                    onClick={() => setShowCapture(true)}
+                  >
+                    <span>📥</span> Quick capture
+                  </button>
+                  <button
+                    type="button"
+                    className="notion-dash-action-btn"
+                    onClick={startTableCreation}
+                  >
+                    <span>▦</span> New database
+                  </button>
+                  <Link href="/chat" className="notion-dash-action-btn">
+                    <span>✨</span> Open AI Chat
+                  </Link>
+                </div>
+
+                {/* Pinned & Favorites Section (if any) */}
+                {favoriteNotes.length > 0 && (
+                  <div className="notion-dashboard-section">
+                    <div className="notion-dashboard-section-header">
+                      <span>⭐</span> FAVORITE &amp; PINNED PAGES
+                    </div>
+                    <div className="notion-dashboard-favorites-grid">
+                      {favoriteNotes.map(n => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          className="notion-dashboard-fav-pill"
+                          onClick={() => { void openPage(n); }}
+                        >
+                          <span className="notion-fav-icon">{n.icon || '📄'}</span>
+                          <span className="notion-fav-title">{n.title || 'Untitled'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recently Edited Pages Grid */}
+                <div className="notion-dashboard-section">
+                  <div className="notion-dashboard-section-header">
+                    <span>🕒</span> RECENTLY UPDATED PAGES
+                  </div>
+                  {activeNotes.length === 0 ? (
+                    <div className="notion-dashboard-empty">
+                      No notes created yet. Click <strong>＋ New page</strong> above to get started!
+                    </div>
+                  ) : (
+                    <div className="notion-dashboard-recent-grid">
+                      {activeNotes.slice(0, 6).map(n => (
+                        <div
+                          key={n.id}
+                          className="notion-dashboard-note-card"
+                          onClick={() => { void openPage(n); }}
+                        >
+                          <div className="notion-dash-card-header">
+                            <span className="notion-dash-card-icon">{n.icon || '📄'}</span>
+                            <span className="notion-dash-card-category">{n.category}</span>
+                          </div>
+                          <h4 className="notion-dash-card-title">{n.title || 'Untitled'}</h4>
+                          <p className="notion-dash-card-snippet">
+                            {n.content ? n.content.replace(/^[#\s\-*]+/g, '').slice(0, 90) + '...' : 'Empty page'}
+                          </p>
+                          <div className="notion-dash-card-footer">
+                            <span>{relativeDate(n.updated_at)}</span>
+                            {n.tags?.length > 0 && (
+                              <span className="notion-dash-card-tag">#{n.tags[0]}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Start Templates */}
+                <div className="notion-dashboard-section">
+                  <div className="notion-dashboard-section-header">
+                    <span>📋</span> QUICK START TEMPLATES
+                  </div>
+                  <div className="notion-dashboard-templates-grid">
+                    {NOTION_TEMPLATES.map(tpl => (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        className="notion-dash-template-card"
+                        onClick={() => void createNoteFromTemplate(tpl)}
+                      >
+                        <span className="notion-template-card-icon">{tpl.icon}</span>
+                        <div className="notion-template-card-text">
+                          <strong>{tpl.name}</strong>
+                          <small>{tpl.desc}</small>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

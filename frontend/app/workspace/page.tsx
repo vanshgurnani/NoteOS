@@ -1185,13 +1185,6 @@ export default function Workspace() {
       <aside className="notion-sidebar">
         <div className="notion-sidebar-header">
           <Link href="/" className="notion-sidebar-brand" aria-label="NoteOS home"><span className="noteos-brand-lockup"><span className="noteos-brand-symbol">✦</span><span className="noteos-brand-word">NoteOS</span></span></Link>
-          <div className="notion-workspace-user">
-            <div className="notion-workspace-avatar">{user.username[0].toUpperCase()}</div>
-            <div className="notion-workspace-meta">
-              <span className="notion-workspace-name">{user.username}&apos;s Notion</span>
-              <span className="notion-plan-badge">Personal</span>
-            </div>
-          </div>
           <button
             type="button"
             className="notion-collapse-btn"
@@ -1483,7 +1476,7 @@ export default function Workspace() {
                 }
               }}
             >
-              {user.username}&apos;s space
+              My workspace
             </button>
 
             {showDashboard && !selected && !selectedTable ? (

@@ -1,0 +1,23 @@
+resource "google_project" "noteos" {
+  project_id      = var.project_id
+  name            = var.project_name
+  billing_account = var.billing_account
+  org_id          = var.org_id != "" ? var.org_id : null
+  deletion_policy = "PREVENT"
+}
+
+locals {
+  required_apis = toset([
+    "serviceusage.googleapis.com",
+    "iam.googleapis.com",
+    "identitytoolkit.googleapis.com",
+    "oauth2.googleapis.com",
+  ])
+}
+
+resource "google_project_service" "apis" {
+  for_each           = local.required_apis
+  project            = google_project.noteos.project_id
+  service            = each.value
+  disable_on_destroy = false
+}

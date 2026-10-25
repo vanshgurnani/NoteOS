@@ -31,9 +31,9 @@ services:
         value: https://noteos-backend.onrender.com/mcp
       # Google Identity Services verifies ID tokens against this OAuth Web Client ID.
       # No Google Client Secret is used by the current GIS credential flow.
-      # Private HTTPS email microservice
+      # Invitation emails are handled by the separate Vercel mailer project.
       - key: MAILER_API_URL
-        value: https://noteos-mailer.onrender.com/v1/email/invitations
+        value: https://noteos-mailer.vercel.app/api/v1/email/invitations
       - key: MAILER_API_KEY
         sync: false
       - key: APP_URL
@@ -73,32 +73,3 @@ services:
           type: web
           name: noteos-backend
           property: hostport
-
-
-  # ---------------------------------------------------------------------------
-  # 3. Private Node.js + Nodemailer email microservice
-  # ---------------------------------------------------------------------------
-  - type: web
-    name: noteos-mailer
-    runtime: docker
-    rootDir: mailer
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    plan: starter
-    region: oregon
-    healthCheckPath: /health
-    envVars:
-      - key: MAILER_API_KEY
-        sync: false
-      - key: FRONTEND_URL
-        value: https://noteos-frontend.onrender.com
-      - key: SMTP_HOST
-        value: smtp.gmail.com
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: SMTP_FROM_EMAIL
-        sync: false

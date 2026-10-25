@@ -5253,6 +5253,12 @@ button {
   font-size: 18px;
 }
 
+.copilot-title-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .copilot-drawer-title-row h3 {
   margin: 0;
   font-size: 15px;
@@ -5260,11 +5266,141 @@ button {
   color: var(--notion-text);
 }
 
+.copilot-active-model-pill {
+  font-size: 11px;
+  color: var(--notion-muted);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .copilot-close-btn {
   font-size: 16px;
   color: var(--notion-muted);
   cursor: pointer;
   padding: 4px;
+}
+
+/* Copilot LLM Switcher Bar */
+.copilot-model-bar {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--notion-hover);
+  border-bottom: 1px solid var(--notion-border);
+}
+
+.copilot-model-select-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.copilot-model-icon {
+  font-size: 15px;
+}
+
+.copilot-model-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--notion-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.copilot-model-select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--notion-border-strong);
+  background: var(--notion-paper);
+  color: var(--notion-text);
+  outline: none;
+  cursor: pointer;
+}
+.copilot-model-select:focus {
+  border-color: #6366f1;
+}
+
+.copilot-model-chips {
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--notion-border);
+  background: var(--notion-sidebar);
+}
+
+.copilot-model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--notion-border);
+  background: var(--notion-paper);
+  color: var(--notion-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.copilot-model-chip:hover {
+  background: var(--notion-hover);
+  color: var(--notion-text);
+  border-color: var(--notion-border-strong);
+}
+
+.copilot-model-chip.active {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.copilot-answer-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--notion-border);
+  font-size: 11.5px;
+}
+
+.copilot-answer-model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #8b5cf6;
+  font-weight: 500;
+}
+
+.copilot-reask-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--notion-hover);
+  border: 1px solid var(--notion-border);
+  color: var(--notion-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.copilot-reask-btn:hover {
+  background: var(--notion-active);
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .copilot-scope-bar {

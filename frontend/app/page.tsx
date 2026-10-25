@@ -798,10 +798,13 @@ export default function Workspace() {
   }
 
   useEffect(() => {
-    if (!selected || !draftDirty || saveStatus !== 'dirty') return;
+    // Wait for an in-flight request to finish. If the user edits while that
+    // request is running, the change to "saving" -> false re-triggers this
+    // effect and schedules the pending draft instead of silently skipping it.
+    if (!selected || !draftDirty || saveStatus !== 'dirty' || saving) return;
     const timer = setTimeout(() => { void saveNote(); }, 900);
     return () => clearTimeout(timer);
-  }, [selected, draftDirty, saveStatus, saveNote]);
+  }, [selected, draftDirty, saveStatus, saving, saveNote]);
 
   useEffect(() => {
     function handleSaveShortcut(event: KeyboardEvent) {
@@ -2454,13 +2457,21 @@ export default function Workspace() {
 
               {/* Document Canvas Paper */}
               <div className={`notion-document-paper ${fullWidth ? 'full-width' : ''}`}>
-                {/* Conflict banner if any */}
+                {/* Save recovery actions */}
                 {saveStatus === 'conflict' && (
                   <div className="notion-conflict-banner" role="alert">
                     <p>This page was modified elsewhere. Your changes are preserved here.</p>
                     <div className="notion-conflict-actions">
                       <button type="button" onClick={reloadConflictedNote}>Load latest version</button>
                       <button type="button" onClick={() => { void saveNote(true); }}>Overwrite with mine</button>
+                    </div>
+                  </div>
+                )}
+                {saveStatus === 'error' && (
+                  <div className="notion-conflict-banner" role="alert">
+                    <p>Could not save this page. Your local edits are still here.</p>
+                    <div className="notion-conflict-actions">
+                      <button type="button" onClick={() => { setSaveStatus('dirty'); }}>Retry save</button>
                     </div>
                   </div>
                 )}

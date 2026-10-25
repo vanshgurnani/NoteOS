@@ -798,10 +798,13 @@ export default function Workspace() {
   }
 
   useEffect(() => {
-    if (!selected || !draftDirty || saveStatus !== 'dirty') return;
+    // Wait for an in-flight request to finish. If the user edits while that
+    // request is running, the change to "saving" -> false re-triggers this
+    // effect and schedules the pending draft instead of silently skipping it.
+    if (!selected || !draftDirty || saveStatus !== 'dirty' || saving) return;
     const timer = setTimeout(() => { void saveNote(); }, 900);
     return () => clearTimeout(timer);
-  }, [selected, draftDirty, saveStatus, saveNote]);
+  }, [selected, draftDirty, saveStatus, saving, saveNote]);
 
   useEffect(() => {
     function handleSaveShortcut(event: KeyboardEvent) {

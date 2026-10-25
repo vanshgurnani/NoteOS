@@ -61,6 +61,19 @@ Instructions for deploying to production.
         self.assertEqual(h1, h2)
         self.assertNotEqual(h1, h3)
 
+    def test_cache_query_hash_includes_scope_filters(self):
+        from app.rag.cache import compute_query_hash
+
+        base = compute_query_hash("user1", "project decisions", "model-a")
+        category = compute_query_hash("user1", "project decisions", "model-a", category_filter="Work")
+        note = compute_query_hash("user1", "project decisions", "model-a", note_id_filter=["note-1"])
+        reordered = compute_query_hash("user1", "project decisions", "model-a", note_id_filter=["note-2", "note-1"])
+        same_set = compute_query_hash("user1", "project decisions", "model-a", note_id_filter=["note-1", "note-2"])
+
+        self.assertNotEqual(base, category)
+        self.assertNotEqual(base, note)
+        self.assertEqual(reordered, same_set)
+
     def test_memory_compressor(self):
         messages = [
             {"role": "user", "content": "Hello AI"},

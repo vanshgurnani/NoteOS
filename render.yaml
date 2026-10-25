@@ -21,6 +21,8 @@ services:
         value: noteform
       - key: JWT_SECRET
         generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false # Same Google OAuth Web Client ID used by the frontend
       - key: CORS_ORIGIN_REGEX
         value: "^https?:\\/\\/.*$"
       - key: CORS_ORIGINS
@@ -56,6 +58,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false # Google Identity Services Web Client ID
       - key: NEXT_PUBLIC_API_URL
         value: https://noteos-backend.onrender.com
       - key: INTERNAL_API_URL

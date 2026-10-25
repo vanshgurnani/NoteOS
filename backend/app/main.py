@@ -35,7 +35,7 @@ from .chat.router import router as chat_router
 from .settings_router import router as settings_router
 from .google_auth import router as google_auth_router
 from .collaboration import router as collaboration_router
-from .meeting_summarizer.service import router as meeting_summarizer_router
+from .meeting_summarizer import router as meeting_summarizer_router
 
 
 app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)

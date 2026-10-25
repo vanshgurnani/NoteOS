@@ -32,7 +32,7 @@ def note_access(note: dict, user: dict, write: bool = False) -> str | None:
          if entry.get("email", "").strip().lower() == email),
         None,
     )
-    if not collaborator:
+    if not collaborator or not collaborator.get("accepted_at"):
         return None
     if not (user.get("google_id") and user.get("auth_provider") in {"google", "dual"}):
         raise HTTPException(status_code=403, detail={
@@ -66,7 +66,7 @@ def _send_invite(email: str, inviter: dict, note: dict, token: str) -> bool:
     message.set_content(
         f'{inviter.get("username", "A teammate")} invited you to collaborate on "{note.get("title", "a note")}" in NoteOS.\n\n'
         f'Sign in with Google using {email}, then open this invitation: {link}\n\n'
-        "You have editor access to this note. If you were not expecting this invitation, you can ignore this email."
+        f"You have {note.get('invite_role', 'editor')} access to this note. If you were not expecting this invitation, you can ignore this email."
     )
     port = int(os.getenv("SMTP_PORT", "587"))
     with smtplib.SMTP(host, port, timeout=12) as server:
@@ -115,6 +115,7 @@ def invite_member(note_id: str, payload: InviteCreate, user: dict = Depends(curr
     })
     notes_collection().update_one({"_id": note["_id"], "owner_id": user["_id"]}, {"$set": {"collaborators": collaborators}})
     email_sent = False
+    note["invite_role"] = payload.role
     try:
         email_sent = _send_invite(email, user, note, token)
     except (OSError, smtplib.SMTPException):
@@ -155,7 +156,7 @@ def accept_invite(token: str, user: dict = Depends(current_user)):
 def shared_notes(user: dict = Depends(current_user)):
     if not user.get("google_id"):
         return {"notes": []}
-    notes = notes_collection().find({"collaborators.email": (user.get("email") or "").lower()}).sort("updated_at", -1)
+    notes = notes_collection().find({"collaborators": {"$elemMatch": {"email": (user.get("email") or "").lower(), "accepted_at": {"$ne": None}}}}).sort("updated_at", -1)
     return {"notes": [{
         "id": str(note["_id"]), "title": note.get("title", "Untitled"),
         "icon": note.get("icon", "✦"), "category": note.get("category", "General"),

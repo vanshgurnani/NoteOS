@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-export default function GoogleSignInButton() {
+export default function GoogleSignInButton({ redirectTo = '/workspace' }: { redirectTo?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [error, setError] = useState('');
@@ -37,7 +37,7 @@ export default function GoogleSignInButton() {
             body: JSON.stringify({ credential }),
           });
           saveSession(result.token, result.user);
-          router.push('/workspace');
+          router.push(redirectTo);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Google sign-in failed');
         }
@@ -48,7 +48,7 @@ export default function GoogleSignInButton() {
       type: 'standard', theme: 'outline', size: 'large', shape: 'rectangular',
       text: 'continue_with', width: 340,
     });
-  }, [ready, clientId, router]);
+  }, [ready, clientId, router, redirectTo]);
 
   if (!clientId) return <p className="notion-auth-google-hint">Google Sign-In will be available after Google Cloud is configured.</p>;
 

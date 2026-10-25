@@ -26,10 +26,7 @@ services:
       - key: CORS_ORIGIN_REGEX
         value: "^https?:\\/\\/.*$"
       - key: CORS_ORIGINS
-        fromService:
-          type: web
-          name: noteos-frontend
-          property: host
+        value: https://noteos-frontend.onrender.com
       - key: MCP_PUBLIC_URL
         value: https://noteos-backend.onrender.com/mcp
       # Google Identity Services verifies ID tokens against this OAuth Web Client ID.

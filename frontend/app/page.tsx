@@ -16,7 +16,7 @@ export default function HomePage() {
   return (
     <main className="public-home">
       <header className="public-nav">
-        <Link className="public-brand" href="/" aria-label="NOTE OS home"><span className="public-brand-mark">n</span><span>NOTE OS</span></Link>
+        <Link className="public-brand" href="/" aria-label="NoteOS home"><span className="noteos-brand-lockup"><span className="noteos-brand-symbol">✦</span><span className="noteos-brand-word">NoteOS</span></span></Link>
         <nav className="public-nav-links" aria-label="Main navigation"><a href="#features">Features</a><a href="#philosophy">Why NOTE OS</a></nav>
         <div className="public-nav-actions"><Link className="public-login-link" href="/login">Log in</Link><Link className="public-nav-cta" href="/register">Get started <span>↗</span></Link></div>
       </header>
@@ -61,7 +61,7 @@ export default function HomePage() {
         <span className="public-overline">A LITTLE LESS NOISE</span><h2>Your mind is for ideas.<br /><em>Let NOTE OS hold the rest.</em></h2>
         <p>One thoughtful workspace for the things you are learning, making, and figuring out.</p><Link href="/register">Start with a blank page <span>→</span></Link>
       </section>
-      <footer className="public-footer"><Link className="public-brand" href="/"><span className="public-brand-mark">n</span><span>NOTE OS</span></Link><span>Made for the way you think.</span><Link href="/login">Log in</Link></footer>
+      <footer className="public-footer"><Link className="public-brand" href="/"><span className="noteos-brand-lockup"><span className="noteos-brand-symbol">✦</span><span className="noteos-brand-word">NoteOS</span></span></Link><span>Made for the way you think.</span><Link href="/login">Log in</Link></footer>
       {!ready && <span className="public-route-check" aria-hidden="true" />}
     </main>
   );

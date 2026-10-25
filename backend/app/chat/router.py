@@ -112,7 +112,7 @@ async def get_conversation(
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
-    msg_cursor = chat_messages_collection().find({"conversation_id": conversation_id}).sort("created_at", 1)
+    msg_cursor = chat_messages_collection().find({"conversation_id": conversation_id, "owner_id": user_id}).sort("created_at", 1)
     messages = [_format_message(m) for m in msg_cursor]
 
     return ConversationDetail(
@@ -168,7 +168,7 @@ async def delete_conversation(
     if not res or res.deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
-    chat_messages_collection().delete_many({"conversation_id": conversation_id})
+    chat_messages_collection().delete_many({"conversation_id": conversation_id, "owner_id": user_id})
     return {"status": "deleted"}
 
 

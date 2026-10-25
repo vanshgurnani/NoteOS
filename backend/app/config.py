@@ -7,10 +7,6 @@ from typing import Optional
 
 class Settings:
     app_name = os.getenv("APP_NAME", "NoteOS API")
-    google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
-    google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    google_redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "")
-    app_url = os.getenv("APP_URL", "http://localhost:3000")
     mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
     mongo_db = os.getenv("MONGO_DB", "noteform")
     jwt_secret = os.getenv("JWT_SECRET", "change-me-in-production")

@@ -663,7 +663,7 @@ def list_notes(
     b_val = None if hasattr(bookmarked, "default") or not isinstance(bookmarked, bool) else bookmarked
     i_val = None if hasattr(inbox, "default") or not isinstance(inbox, bool) else inbox
 
-    query: dict[str, Any] = {"$or": [owner_filter(user), {"collaborators.email": (user.get("email") or "").strip().lower()}]}
+    query: dict[str, Any] = {"$or": [owner_filter(user), {"collaborators": {"$elemMatch": {"email": (user.get("email") or "").strip().lower(), "accepted_at": {"$ne": None}}}}]}
     if cat_str and cat_str.lower() != "all":
         if cat_str.lower() == "pinned":
             query["pinned"] = True

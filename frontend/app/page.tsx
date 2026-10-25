@@ -128,17 +128,11 @@ export default function Workspace() {
   const [showMcp, setShowMcp] = useState(false);
   const [showCopilot, setShowCopilot] = useState(false);
   const [mcpToken, setMcpToken] = useState('');
-  const [showCapture, setShowCapture] = useState(false);
   const [showNewPageDialog, setShowNewPageDialog] = useState(false);
   const [showTableNameDialog, setShowTableNameDialog] = useState(false);
   const [newTableName, setNewTableName] = useState('');
   const [newPageError, setNewPageError] = useState('');
   const [creatingTable, setCreatingTable] = useState(false);
-  const [captureTitle, setCaptureTitle] = useState('');
-  const [captureContent, setCaptureContent] = useState('');
-  const [captureSource, setCaptureSource] = useState('');
-  const [captureError, setCaptureError] = useState('');
-  const [capturing, setCapturing] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [commandQuery, setCommandQuery] = useState('');
   const [commandIndex, setCommandIndex] = useState(0);
@@ -265,10 +259,6 @@ export default function Workspace() {
         setCommandQuery('');
         setCommandIndex(0);
         return;
-      }
-      if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'c') {
-        event.preventDefault();
-        setShowCapture(true);
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
         event.preventDefault();
@@ -582,10 +572,9 @@ export default function Workspace() {
   const visibleWorkspaceItems = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     const visibleNotes = activeNotes.filter(note => {
-      if (category === 'Inbox' && !note.inbox) return false;
       if (category === 'Favorites' && !note.bookmarked) return false;
       if (category === 'Pinned' && !note.pinned) return false;
-      if (!['All notes', 'Inbox', 'Favorites', 'Pinned'].includes(category) && note.category !== category) return false;
+      if (!['All notes', 'Favorites', 'Pinned'].includes(category) && note.category !== category) return false;
       if (selectedTag && !note.tags.includes(selectedTag)) return false;
       if (!query) return true;
       return [note.title, note.content, note.source_url || '']
@@ -616,7 +605,7 @@ export default function Workspace() {
   const visibleTableCount = visibleWorkspaceItems.filter(item => item.kind === 'table').length;
 
   const favoriteNotes = useMemo(
-    () => activeNotes.filter(note => (note.bookmarked || note.pinned) && !note.inbox),
+    () => activeNotes.filter(note => note.bookmarked || note.pinned),
     [activeNotes]
   );
 
@@ -658,7 +647,7 @@ export default function Workspace() {
   }, [activeNotes, selected]);
 
   const childPages = useMemo(
-    () => selected ? activeNotes.filter(note => note.parent_id === selected.id && !note.inbox) : [],
+    () => selected ? activeNotes.filter(note => note.parent_id === selected.id) : [],
     [activeNotes, selected],
   );
 
@@ -667,12 +656,11 @@ export default function Workspace() {
     const actions = [
       { id: 'new-page', title: 'Create a new page', subtitle: 'Add a page to your workspace', kind: 'action' as const },
       { id: 'new-table', title: 'Create a database table', subtitle: 'Add structured rows and columns', kind: 'action' as const },
-      { id: 'quick-capture', title: 'Quick capture', subtitle: 'Save a thought or link to Inbox', kind: 'action' as const },
       { id: 'toggle-dark', title: 'Toggle Dark Mode', subtitle: 'Switch between light and dark themes', kind: 'action' as const },
       { id: 'open-trash', title: 'Open Trash', subtitle: 'View and restore deleted pages', kind: 'action' as const },
     ].filter(item => !query || `${item.title} ${item.subtitle}`.toLocaleLowerCase().includes(query));
     const pages = activeNotes
-      .filter(note => !note.inbox && (!query || `${note.title} ${note.content} ${note.source_url || ''}`.toLocaleLowerCase().includes(query)))
+      .filter(note => !query || `${note.title} ${note.content} ${note.source_url || ''}`.toLocaleLowerCase().includes(query))
       .map(note => ({ id: note.id, title: note.title || 'Untitled', subtitle: note.category, kind: 'page' as const, note }));
     const tbls = tables
       .filter(table => !query || table.name.toLocaleLowerCase().includes(query))
@@ -826,7 +814,7 @@ export default function Workspace() {
     if (!note) {
       setShowDashboard(false);
     }
-    if (note && !note.inbox && user) {
+    if (note && user) {
       setRecentIds(current => {
         const next = [note.id, ...current.filter(id => id !== note.id)].slice(0, 5);
         localStorage.setItem(`noteform_recent_${user.id}`, JSON.stringify(next));
@@ -900,8 +888,6 @@ export default function Workspace() {
       setShowNewPageDialog(true);
     } else if (item.id === 'new-table') {
       startTableCreation();
-    } else if (item.id === 'quick-capture') {
-      setShowCapture(true);
     } else if (item.id === 'toggle-dark') {
       toggleDarkMode();
     } else if (item.id === 'open-trash') {
@@ -988,66 +974,6 @@ export default function Workspace() {
     setNewPageError('');
     setShowNewPageDialog(false);
     setShowTableNameDialog(true);
-  }
-
-  async function createCapture(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (draftDirty && !await saveNote()) {
-      setCaptureError('Save or resolve the open page edits before capturing.');
-      return;
-    }
-    const sourceUrl = captureSource.trim();
-    const content = captureContent.trim();
-    if (!sourceUrl && !content) {
-      setCaptureError('Add a thought or a source link to capture.');
-      return;
-    }
-
-    setCaptureError('');
-    setCapturing(true);
-    try {
-      const result = await api<{ note: Note }>('/notes', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: captureTitle.trim() || (sourceUrl ? 'Saved link' : 'Quick capture'),
-          content,
-          category: 'General',
-          icon: '⌁',
-          source_url: sourceUrl || null,
-          inbox: true,
-        }),
-      });
-      setNotes(current => [result.note, ...current]);
-      setCaptureTitle('');
-      setCaptureContent('');
-      setCaptureSource('');
-      setCaptureError('');
-      setShowCapture(false);
-      flash('Saved to Inbox');
-    } catch (err) {
-      setCaptureError(err instanceof Error ? err.message : 'Could not save capture');
-    } finally {
-      setCapturing(false);
-    }
-  }
-
-  async function moveCaptureToPages(note: Note) {
-    if (draftDirty && !await saveNote()) return;
-    try {
-      const latest = draftDirty && selected?.id === note.id
-        ? await api<{ note: Note }>(`/notes/${note.id}`)
-        : { note };
-      const result = await api<{ note: Note }>(`/notes/${note.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ inbox: false, version: latest.note.version }),
-      });
-      setNotes(current => current.map(item => item.id === note.id ? result.note : item));
-      setSelected(result.note);
-      setCategory('All notes');
-      flash('Moved to Private pages');
-    } catch (err) {
-      flash(err instanceof Error ? err.message : 'Could not move capture');
-    }
   }
 
   async function toggleBookmark(note: Note) {
@@ -1310,22 +1236,6 @@ export default function Workspace() {
 
           <button
             type="button"
-            className={`notion-nav-row ${category === 'Inbox' ? 'active' : ''}`}
-            onClick={() => {
-              void selectNote(null).then(saved => {
-                if (saved) { setSelectedTag(null); setCategory('Inbox'); }
-              });
-            }}
-          >
-            <span className="notion-nav-icon">⌁</span>
-            <span className="notion-nav-text">Inbox</span>
-            {activeNotes.filter(n => n.inbox).length > 0 && (
-              <span className="notion-nav-badge">{activeNotes.filter(n => n.inbox).length}</span>
-            )}
-          </button>
-
-          <button
-            type="button"
             className={`notion-nav-row ${category === 'All notes' && !selected && !selectedTable ? 'active' : ''}`}
             onClick={() => {
               void selectNote(null).then(saved => {
@@ -1387,7 +1297,7 @@ export default function Workspace() {
             </div>
             {workspaceExpanded && (
               <PagesTree
-                notes={activeNotes.filter(note => !note.inbox)}
+                notes={activeNotes}
                 selectedId={selected?.id}
                 onSelect={openPage}
                 onCreateChild={parentId => createNote(parentId)}
@@ -1902,15 +1812,6 @@ export default function Workspace() {
 
             <button
               type="button"
-              className="notion-btn-capture"
-              onClick={() => setShowCapture(true)}
-              title="Quick capture (⌥⇧C)"
-            >
-              ＋ Capture
-            </button>
-
-            <button
-              type="button"
               className="notion-user-badge"
               title={`${user.username} (Click to sign out)`}
               onClick={logout}
@@ -1981,14 +1882,14 @@ export default function Workspace() {
               ) : visibleWorkspaceItems.length === 0 ? (
                 <div className="notion-empty-block">
                   <div className="notion-empty-icon">📄</div>
-                  <h3>{category === 'Inbox' ? 'Inbox is clear' : 'No pages yet'}</h3>
-                  <p>{category === 'Inbox' ? 'Quick captures will appear here.' : 'Create a page or database to get started.'}</p>
+                  <h3>No pages yet</h3>
+                  <p>Create a page or database to get started.</p>
                   <button
                     type="button"
                     className="notion-primary-action-btn"
-                    onClick={() => category === 'Inbox' ? setShowCapture(true) : setShowNewPageDialog(true)}
+                    onClick={() => setShowNewPageDialog(true)}
                   >
-                    {category === 'Inbox' ? 'Capture thought' : '＋ New page'}
+                    ＋ New page
                   </button>
                 </div>
               ) : (
@@ -2605,20 +2506,7 @@ export default function Workspace() {
                     </div>
                   )}
 
-                  {selected.inbox && (
-                    <div className="notion-property-row">
-                      <div className="notion-property-label">Inbox</div>
-                      <div className="notion-property-val">
-                        <button
-                          type="button"
-                          className="notion-btn-move-pages"
-                          onClick={() => moveCaptureToPages(selected)}
-                        >
-                          Move to workspace pages
-                        </button>
-                      </div>
-                    </div>
-                  )}
+
                 </div>
 
                 {/* Subpages / Child Pages block */}
@@ -2824,13 +2712,6 @@ export default function Workspace() {
                     onClick={() => setShowCommandPalette(true)}
                   >
                     <span>⌕</span> Search (⌘K)
-                  </button>
-                  <button
-                    type="button"
-                    className="notion-dash-action-btn"
-                    onClick={() => setShowCapture(true)}
-                  >
-                    <span>📥</span> Quick capture
                   </button>
                   <button
                     type="button"
@@ -3043,7 +2924,7 @@ export default function Workspace() {
                   onClick={() => { void runCommand(item); }}
                 >
                   <span className="command-result-icon">
-                    {item.kind === 'page' ? item.note.icon : item.kind === 'table' ? '▦' : item.id === 'quick-capture' ? '⌁' : item.id === 'toggle-dark' ? '🌙' : item.id === 'open-trash' ? '🗑' : '＋'}
+                    {item.kind === 'page' ? item.note.icon : item.kind === 'table' ? '▦' : item.id === 'toggle-dark' ? '🌙' : item.id === 'open-trash' ? '🗑' : '＋'}
                   </span>
                   <span><strong>{item.title}</strong><small>{item.subtitle}</small></span>
                   {(item.kind === 'page' || item.kind === 'table') && <kbd>↵</kbd>}
@@ -3120,37 +3001,6 @@ export default function Workspace() {
                   {creatingTable ? 'Creating…' : 'Create database'} <span>→</span>
                 </button>
               </div>
-            </form>
-          </section>
-        </div>
-      )}
-
-      {/* Quick Capture Modal */}
-      {showCapture && (
-        <div className="modal-backdrop" onClick={() => setShowCapture(false)}>
-          <section className="capture-modal" role="dialog" aria-modal="true" aria-labelledby="capture-heading" onClick={event => event.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowCapture(false)} aria-label="Close capture">×</button>
-            <div className="mcp-symbol">⌁</div>
-            <p className="eyebrow">QUICK CAPTURE · INBOX</p>
-            <h2 id="capture-heading">Save it for later</h2>
-            <p className="muted modal-copy">Drop in a thought or link. You can organize it when you have time.</p>
-            <form className="capture-form" onSubmit={createCapture}>
-              <label>
-                Title <span>optional</span>
-                <input autoFocus value={captureTitle} onChange={event => { setCaptureTitle(event.target.value); setCaptureError(''); }} maxLength={160} placeholder="Give it a name" />
-              </label>
-              <label>
-                Source link <span>optional</span>
-                <input type="url" value={captureSource} onChange={event => { setCaptureSource(event.target.value); setCaptureError(''); }} maxLength={2048} placeholder="https://…" />
-              </label>
-              <label>
-                Thought or context <span>optional if you add a link</span>
-                <textarea value={captureContent} onChange={event => { setCaptureContent(event.target.value); setCaptureError(''); }} maxLength={100000} placeholder="What do you want to remember?" />
-              </label>
-              {captureError && <p className="form-error" role="alert">{captureError}</p>}
-              <button className="primary-button" type="submit" disabled={capturing}>
-                {capturing ? 'Saving…' : 'Save to Inbox'} <span>⌘ ↵</span>
-              </button>
             </form>
           </section>
         </div>

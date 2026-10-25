@@ -292,7 +292,7 @@ Frontend: `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
 
 ### Important deployment steps
 
-1. Apply `infra/google` Terraform after supplying a project ID and billing account.
+1. Apply `infra/google` Terraform after supplying a project ID. The configuration does not create or attach a billing account.
 2. Finish Google Auth Platform branding, audience, and Web application client setup in the Google Cloud Console.
 3. Configure the same OAuth client ID in backend and frontend deployment environments.
 4. Configure SMTP credentials in the backend deployment environment.

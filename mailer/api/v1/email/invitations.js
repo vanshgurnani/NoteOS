@@ -41,10 +41,11 @@ export default async function handler(req, res) {
   if (!/^[A-Za-z0-9_-]{30,100}$/.test(token)) return json(res, 422, { error: "invalid_invitation_token" });
   if (!role) return json(res, 422, { error: "invalid_role" });
 
-  const smtpUser = process.env.SMTP_USER || "";
+  const smtpUser = (process.env.SMTP_USER || "").trim();
   const smtpPassword = process.env.SMTP_PASSWORD || "";
-  const fromEmail = process.env.SMTP_FROM_EMAIL || smtpUser;
+  const fromEmail = (process.env.SMTP_FROM_EMAIL || smtpUser).trim();
   if (!smtpUser || !smtpPassword || !fromEmail) return json(res, 503, { error: "mailer_not_configured" });
+  if (smtpUser.length > 254 || fromEmail.length > 254) return json(res, 503, { error: "mailer_configuration_invalid" });
 
   try {
     const inviterName = cleanHeader(body.inviterName, "A teammate");

@@ -7,15 +7,28 @@ from typing import Any, Optional
 from ..database import rag_query_cache_collection
 
 
-def compute_query_hash(owner_id: str, query: str, model: str) -> str:
+def compute_query_hash(
+    owner_id: str,
+    query: str,
+    model: str,
+    category_filter: Optional[str] = None,
+    note_id_filter: Optional[list[str]] = None,
+) -> str:
     normalized = " ".join(query.lower().strip().split())
-    raw = f"{owner_id}:{normalized}:{model}"
+    normalized_note_ids = ",".join(sorted(set(note_id_filter or [])))
+    raw = f"{owner_id}:{normalized}:{model}:{category_filter or ''}:{normalized_note_ids}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def get_cached_rag_response(owner_id: str, query: str, model: str) -> Optional[dict[str, Any]]:
+def get_cached_rag_response(
+    owner_id: str,
+    query: str,
+    model: str,
+    category_filter: Optional[str] = None,
+    note_id_filter: Optional[list[str]] = None,
+) -> Optional[dict[str, Any]]:
     col = rag_query_cache_collection()
-    q_hash = compute_query_hash(owner_id, query, model)
+    q_hash = compute_query_hash(owner_id, query, model, category_filter, note_id_filter)
     doc = col.find_one({"query_hash": q_hash, "owner_id": owner_id})
     if not doc:
         return None
@@ -41,9 +54,11 @@ def set_cached_rag_response(
     answer: str,
     citations: list[dict[str, Any]],
     ttl_seconds: int = 3600,
+    category_filter: Optional[str] = None,
+    note_id_filter: Optional[list[str]] = None,
 ) -> None:
     col = rag_query_cache_collection()
-    q_hash = compute_query_hash(owner_id, query, model)
+    q_hash = compute_query_hash(owner_id, query, model, category_filter, note_id_filter)
     expires_at = datetime.datetime.utcnow() + datetime.timedelta(seconds=ttl_seconds)
 
     col.update_one(

@@ -413,6 +413,11 @@ export default function MarkdownEditor({
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
               placeholder="Type '/' for commands or '[[' to link a page…"
+              aria-label="Note content editor"
+              spellCheck
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              enterKeyHint="enter"
             />
           </div>
         )}

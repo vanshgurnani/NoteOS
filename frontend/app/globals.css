@@ -7084,6 +7084,35 @@ canvas {
   color: var(--notion-light-muted);
   letter-spacing: 0.6px;
   text-transform: uppercase;
+  width: 100%;
+}
+
+.notion-dashboard-count-badge {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--notion-hover);
+  color: var(--notion-muted);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.notion-dash-view-all-link {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--notion-blue);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.notion-dash-view-all-link:hover {
+  background: var(--notion-hover);
+  text-decoration: underline;
 }
 
 /* Favorites Shelf */
@@ -7114,6 +7143,9 @@ canvas {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 14px;
+}
+.notion-dashboard-recent-grid.top-3-grid {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
 .notion-dashboard-note-card {

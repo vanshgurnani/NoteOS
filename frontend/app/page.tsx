@@ -119,7 +119,6 @@ export default function Workspace() {
   const [tagInput, setTagInput] = useState('');
   const [search, setSearch] = useState('');
   const [view, setView] = useState<'list' | 'grid'>('list');
-  const [layoutMode, setLayoutMode] = useState<'document' | 'split'>('document');
   const [sortMode, setSortMode] = useState<'updated' | 'created' | 'title'>('updated');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -621,6 +620,13 @@ export default function Workspace() {
     [activeNotes]
   );
 
+  const latestTopNotes = useMemo(
+    () => [...activeNotes]
+      .sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime())
+      .slice(0, 3),
+    [activeNotes]
+  );
+
   const availableTags = useMemo(
     () => Array.from(new Set(activeNotes.flatMap(note => note.tags))).sort((left, right) => left.localeCompare(right)),
     [activeNotes],
@@ -814,6 +820,9 @@ export default function Workspace() {
     setSelected(note);
     setTagInput('');
     setSaveStatus('saved');
+    if (!note) {
+      setShowDashboard(false);
+    }
     if (note && !note.inbox && user) {
       setRecentIds(current => {
         const next = [note.id, ...current.filter(id => id !== note.id)].slice(0, 5);
@@ -1741,26 +1750,6 @@ export default function Workspace() {
                   {selected.pinned ? '◆' : '◇'}
                 </button>
 
-                {/* View Mode Toggle: Document Canvas vs Split */}
-                <div className="notion-mode-toggle">
-                  <button
-                    type="button"
-                    className={layoutMode === 'document' ? 'active' : ''}
-                    title="Full Page Document"
-                    onClick={() => setLayoutMode('document')}
-                  >
-                    Doc
-                  </button>
-                  <button
-                    type="button"
-                    className={layoutMode === 'split' ? 'active' : ''}
-                    title="Split List & Editor"
-                    onClick={() => setLayoutMode('split')}
-                  >
-                    Split
-                  </button>
-                </div>
-
                 {/* Page Menu Dropdown */}
                 <div className="notion-menu-container" ref={pageMenuRef}>
                   <button
@@ -1927,9 +1916,9 @@ export default function Workspace() {
         </header>
 
         {/* Workspace Body Area */}
-        <div className={`notion-content-area ${layoutMode === 'split' ? 'split-layout' : 'document-layout'}`}>
-          {/* Notes list pane: Shown when layoutMode is 'split', OR when neither a page nor a table is active */}
-          {(layoutMode === 'split' || (!selected && !selectedTable)) && (
+        <div className="notion-content-area document-layout">
+          {/* Notes list pane: Shown only when browsing categories/all notes and not on dashboard */}
+          {(!selected && !selectedTable && !showDashboard) && (
             <div className="notion-list-pane">
               <div className="notion-list-header">
                 <div className="notion-list-title-row">
@@ -2002,7 +1991,7 @@ export default function Workspace() {
                   {visibleWorkspaceItems.map(entry => entry.kind === 'table' ? (
                     <div
                       key={`table-${entry.item.id}`}
-                      className={`notion-card table-card ${selectedTable?.id === entry.item.id ? 'selected' : ''}`}
+                      className={`notion-card table-card ${(selectedTable as DataTable | null)?.id === entry.item.id ? 'selected' : ''}`}
                       onClick={() => { void selectTable(entry.item); }}
                     >
                       <div className="notion-card-icon">▦</div>
@@ -2018,7 +2007,7 @@ export default function Workspace() {
                   ) : (
                     <div
                       key={`page-${entry.item.id}`}
-                      className={`notion-card ${selected?.id === entry.item.id ? 'selected' : ''}`}
+                      className={`notion-card ${(selected as Note | null)?.id === entry.item.id ? 'selected' : ''}`}
                       onClick={() => { void selectNote(entry.item); }}
                     >
                       <div className="notion-card-icon">{entry.item.icon || '📄'}</div>
@@ -2707,7 +2696,7 @@ export default function Workspace() {
                 />
               </div>
             </div>
-          ) : (
+          ) : showDashboard ? (
             /* Workspace Dashboard — Calm & Integrated Notion Design */
             <div className={`notion-document-pane notion-dashboard-pane font-${fontStyle}`}>
               <div className="notion-dashboard-container">
@@ -2864,18 +2853,39 @@ export default function Workspace() {
                   </div>
                 )}
 
-                {/* Recently Edited Pages Grid */}
+                {/* All Notes Section — Only Top 3 Latest Notes */}
                 <div className="notion-dashboard-section">
                   <div className="notion-dashboard-section-header">
-                    <span>🕒</span> RECENTLY UPDATED PAGES
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>📄</span>
+                      <span>ALL NOTES · LATEST</span>
+                      <span className="notion-dashboard-count-badge">Top 3</span>
+                    </div>
+                    {activeNotes.length > 3 && (
+                      <button
+                        type="button"
+                        className="notion-dash-view-all-link"
+                        onClick={() => {
+                          void selectNote(null).then(saved => {
+                            if (saved) {
+                              setSelectedTag(null);
+                              setCategory('All notes');
+                              setShowDashboard(false);
+                            }
+                          });
+                        }}
+                      >
+                        View all {activeNotes.length} notes ➜
+                      </button>
+                    )}
                   </div>
-                  {activeNotes.length === 0 ? (
+                  {latestTopNotes.length === 0 ? (
                     <div className="notion-dashboard-empty">
                       No notes created yet. Click <strong>＋ New page</strong> above to get started!
                     </div>
                   ) : (
-                    <div className="notion-dashboard-recent-grid">
-                      {activeNotes.slice(0, 6).map(n => (
+                    <div className="notion-dashboard-recent-grid top-3-grid">
+                      {latestTopNotes.map(n => (
                         <div
                           key={n.id}
                           className="notion-dashboard-note-card"
@@ -2887,7 +2897,7 @@ export default function Workspace() {
                           </div>
                           <h4 className="notion-dash-card-title">{n.title || 'Untitled'}</h4>
                           <p className="notion-dash-card-snippet">
-                            {n.content ? n.content.replace(/^[#\s\-*]+/g, '').slice(0, 90) + '...' : 'Empty page'}
+                            {n.content ? n.content.replace(/^[#\s\-*]+/g, '').slice(0, 95) + '...' : 'Empty page'}
                           </p>
                           <div className="notion-dash-card-footer">
                             <span>{relativeDate(n.updated_at)}</span>
@@ -2925,7 +2935,7 @@ export default function Workspace() {
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

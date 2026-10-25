@@ -7830,3 +7830,45 @@ canvas {
 @media (prefers-reduced-motion: reduce) {
   .public-home *, .public-home *::before, .public-home *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+
+/* Workspace details: quieter surfaces, consistent controls and typography */
+.notion-sidebar { padding: 8px 7px; }
+.notion-sidebar-header { min-height: 58px; padding: 8px 9px; }
+.notion-workspace-avatar { border-radius: 8px; }
+.notion-sidebar-quicklinks { padding: 7px 5px; }
+.notion-nav-row { min-height: 34px; padding: 0 10px; border-radius: 7px; font-size: 12px; }
+.notion-topbar { height: 50px; min-height: 50px; padding: 0 22px; background: rgba(250,250,248,.94); }
+.notion-breadcrumbs { font-size: 12px; }
+.notion-main-container { background: #fafaf8; }
+.notion-list-pane { padding: 28px 24px; }
+.notion-dashboard-pane { padding: clamp(28px,5vw,56px) clamp(20px,4vw,48px) 72px; }
+.notion-dashboard-container { max-width: 940px; gap: 30px; }
+.notion-dashboard-title { font-weight: 650; letter-spacing: -.04em; }
+.notion-page-title-input { font-family: 'DM Sans', Inter, sans-serif; font-weight: 650; letter-spacing: -.045em; }
+.notion-editor-wrapper { max-width: 100%; }
+.notion-format-toolbar { gap: 5px; }
+.notion-format-toolbar button { min-width: 28px; min-height: 28px; border-radius: 6px; }
+.notion-format-toolbar button:hover { background: #f0f1ed; }
+.notion-properties-bar { gap: 8px; }
+.notion-property-row { min-height: 30px; }
+.notion-app-shell button, .notion-app-shell input, .notion-app-shell textarea, .notion-app-shell select { accent-color: #718b73; }
+.notion-app-shell button:disabled { cursor: not-allowed; opacity: .58; }
+.notion-app-shell .modal-backdrop { background: rgba(24,28,23,.46); backdrop-filter: blur(4px); }
+.notion-app-shell .capture-modal, .notion-app-shell .portability-modal, .notion-app-shell .command-palette { border-radius: 14px; box-shadow: 0 22px 70px rgba(24,30,22,.18); }
+.notion-app-shell .modal-close { border-radius: 7px; }
+.notion-app-shell .form-error { border-radius: 8px; }
+.dark-mode.notion-app-shell { background: #191b19; }
+.dark-mode .notion-sidebar { background: #1d201d; border-right-color: rgba(255,255,255,.08); }
+.dark-mode .notion-topbar { background: rgba(29,32,29,.94); }
+.dark-mode .notion-nav-row.active { background: rgba(137,163,132,.16); color: #dce8d8; }
+.dark-mode .notion-nav-row:hover { background: rgba(255,255,255,.06); }
+.notion-auth-home-link { display: inline-flex; margin-bottom: 24px; color: #788477; font-size: 11px; text-decoration: none; }
+.notion-auth-home-link:hover { color: #394a39; }
+
+@media (max-width: 700px) {
+  .notion-topbar { padding: 0 12px; }
+  .notion-list-pane { padding: 20px 16px; }
+  .notion-dashboard-pane { padding: 24px 16px 60px; }
+  .notion-page-title-input { font-size: clamp(28px, 8vw, 38px); }
+}

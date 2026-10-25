@@ -8079,3 +8079,25 @@ canvas {
     left: 10px !important;
   }
 }
+
+
+/* Google sign-in and note collaboration */
+.notion-auth-google { display:flex; justify-content:center; margin: 18px 0 12px; min-height:42px; }
+.notion-auth-google-hint { color:var(--notion-muted,#777); font-size:12px; text-align:center; margin:12px 0; }
+.notion-auth-divider { display:flex; align-items:center; gap:12px; color:#92928d; font-size:11px; margin:14px 0 18px; }
+.notion-auth-divider::before,.notion-auth-divider::after { content:""; height:1px; background:rgba(55,53,47,.12); flex:1; }
+.notion-google-signin { display:flex; justify-content:center; width:100%; }
+.noteos-invite-section { padding: 14px 0 16px; border-bottom:1px solid var(--notion-border,rgba(55,53,47,.12)); margin-bottom:14px; }
+.noteos-invite-heading strong { font-size:13px; color:var(--notion-text,#37352f); }
+.noteos-invite-heading p,.noteos-invite-hint { margin:4px 0 10px; color:var(--notion-muted,#888); font-size:11px; line-height:1.5; }
+.noteos-invite-form { display:grid; grid-template-columns:minmax(0,1fr) 100px auto; gap:6px; }
+.noteos-invite-form input,.noteos-invite-form select { min-width:0; height:34px; border:1px solid var(--notion-border,rgba(55,53,47,.15)); border-radius:7px; padding:0 9px; background:var(--notion-card,#fff); color:var(--notion-text,#37352f); font:inherit; font-size:11px; }
+.noteos-invite-form button { border:0; border-radius:7px; padding:0 12px; background:#37352f; color:white; font-size:11px; font-weight:600; }
+.noteos-invite-form button:disabled { opacity:.5; cursor:not-allowed; }
+.noteos-invite-hint { margin:8px 0 0; }
+.noteos-invite-success,.noteos-invite-error { font-size:11px; margin:8px 0 0; line-height:1.4; }
+.noteos-invite-success { color:#39734b; }
+.noteos-invite-error { color:#b54747; }
+.dark-mode .noteos-invite-form input,.dark-mode .noteos-invite-form select { background:#242724; border-color:rgba(255,255,255,.12); color:#eee; }
+.dark-mode .noteos-invite-form button { background:#e9e9e3; color:#252721; }
+@media(max-width:520px){.noteos-invite-form{grid-template-columns:1fr 100px}.noteos-invite-form button{grid-column:1/-1;height:34px}}

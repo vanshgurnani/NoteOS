@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import MarkdownEditor from '../components/MarkdownEditor';
 import PagesTree from '../components/PagesTree';
 import AiCopilotDrawer from '../components/AiCopilotDrawer';
+import InviteMembers from '../components/InviteMembers';
 import {
   ApiError,
   api,
@@ -1563,7 +1564,7 @@ export default function Workspace() {
                   </button>
 
                   {showShareModal && (
-                    <div className="notion-share-popover">
+                    <div className="notion-share-popover">\n                      <InviteMembers noteId={selected.id} />
                       <div className="share-popover-header">
                         <h4 className="share-popover-title">Share to Web</h4>
                         {selected.is_public && (

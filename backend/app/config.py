@@ -7,6 +7,7 @@ from typing import Optional
 
 class Settings:
     app_name = os.getenv("APP_NAME", "NoteOS API")
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
     mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017")
     mongo_db = os.getenv("MONGO_DB", "noteform")
     jwt_secret = os.getenv("JWT_SECRET", "change-me-in-production")

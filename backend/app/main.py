@@ -33,6 +33,8 @@ from .rag.cache import invalidate_user_rag_cache
 from .rag.providers import generate_chat_completion
 from .chat.router import router as chat_router
 from .settings_router import router as settings_router
+from .google_auth import router as google_auth_router
+from .collaboration import router as collaboration_router
 
 
 app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
@@ -67,6 +69,8 @@ app.include_router(rag_router)
 app.include_router(chat_router)
 app.include_router(openai_router)
 app.include_router(settings_router)
+app.include_router(google_auth_router)
+app.include_router(collaboration_router)
 
 
 def owner_filter(user: dict) -> dict:
@@ -74,12 +78,26 @@ def owner_filter(user: dict) -> dict:
     return {"owner_id": {"$in": [uid, str(uid)]}}
 
 
-def note_or_404(note_id: str, user: dict) -> dict:
+def note_or_404(note_id: str, user: dict, write: bool = False) -> dict:
     if not ObjectId.is_valid(note_id):
         raise HTTPException(status_code=400, detail="Invalid note id")
-    note = notes_collection().find_one({"_id": ObjectId(note_id), **owner_filter(user)})
+    note = notes_collection().find_one({"_id": ObjectId(note_id)})
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
+    if str(note.get("owner_id")) == str(user["_id"]):
+        return note
+    email = (user.get("email") or "").strip().lower()
+    collaborator = next((entry for entry in note.get("collaborators", [])
+                         if entry.get("email", "").strip().lower() == email), None)
+    if not collaborator or not collaborator.get("accepted_at"):
+        raise HTTPException(status_code=404, detail="Note not found")
+    if not user.get("google_id") or user.get("auth_provider") not in {"google", "dual"}:
+        raise HTTPException(status_code=403, detail={
+            "error": "google_auth_required",
+            "message": "Sign in with Google using the invited email address to access this note.",
+        })
+    if write and collaborator.get("role") != "editor":
+        raise HTTPException(status_code=403, detail="You have view-only access to this note")
     return note
 
 
@@ -645,7 +663,7 @@ def list_notes(
     b_val = None if hasattr(bookmarked, "default") or not isinstance(bookmarked, bool) else bookmarked
     i_val = None if hasattr(inbox, "default") or not isinstance(inbox, bool) else inbox
 
-    query: dict[str, Any] = owner_filter(user)
+    query: dict[str, Any] = {"$or": [owner_filter(user), {"collaborators": {"$elemMatch": {"email": (user.get("email") or "").strip().lower(), "accepted_at": {"$ne": None}}}}]}
     if cat_str and cat_str.lower() != "all":
         if cat_str.lower() == "pinned":
             query["pinned"] = True
@@ -701,7 +719,7 @@ def get_note(note_id: str, user: dict = Depends(current_user)):
 
 @app.patch("/notes/{note_id}")
 def update_note(note_id: str, payload: NoteUpdate, user: dict = Depends(current_user)):
-    note = note_or_404(note_id, user)
+    note = note_or_404(note_id, user, write=True)
     current_version = int(note.get("version", 1))
     if payload.version is not None and payload.version != current_version:
         raise HTTPException(
@@ -726,7 +744,7 @@ def update_note(note_id: str, payload: NoteUpdate, user: dict = Depends(current_
         else {"version": {"$exists": False}}
     )
     result = notes_collection().update_one(
-        {"_id": ObjectId(note_id), **owner_filter(user), **version_filter},
+        {"_id": ObjectId(note_id), **version_filter},
         {"$set": changes},
     )
     if result.modified_count != 1:
@@ -756,7 +774,9 @@ def update_note(note_id: str, payload: NoteUpdate, user: dict = Depends(current_
 
 @app.delete("/notes/{note_id}")
 def delete_note(note_id: str, user: dict = Depends(current_user)):
-    note_or_404(note_id, user)
+    note = note_or_404(note_id, user)
+    if str(note.get("owner_id")) != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the owner can delete a shared note")
     if notes_collection().find_one({"parent_id": ObjectId(note_id), **owner_filter(user)}):
         raise HTTPException(status_code=409, detail="Move or delete this page's child pages before deleting it")
     notes_collection().delete_one({"_id": ObjectId(note_id), **owner_filter(user)})
@@ -771,6 +791,8 @@ def delete_note(note_id: str, user: dict = Depends(current_user)):
 @app.post("/notes/{note_id}/share")
 def share_note(note_id: str, user: dict = Depends(current_user)):
     note = note_or_404(note_id, user)
+    if str(note.get("owner_id")) != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the owner can publish this note")
     public_id = note.get("public_id")
     if not public_id:
         public_id = f"pub_{secrets.token_urlsafe(12)}"
@@ -785,7 +807,9 @@ def share_note(note_id: str, user: dict = Depends(current_user)):
 
 @app.delete("/notes/{note_id}/share")
 def unshare_note(note_id: str, user: dict = Depends(current_user)):
-    note_or_404(note_id, user)
+    note = note_or_404(note_id, user)
+    if str(note.get("owner_id")) != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the owner can change public sharing")
     now = datetime.now(timezone.utc)
     notes_collection().update_one(
         {"_id": ObjectId(note_id), **owner_filter(user)},

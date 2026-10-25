@@ -55,6 +55,7 @@ export default function AiCopilotDrawer({
   const [models, setModels] = useState<AiModel[]>([]);
   const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
   const [lastQuery, setLastQuery] = useState('');
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [answeredByModel, setAnsweredByModel] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +113,7 @@ export default function AiCopilotDrawer({
 
     setIsLoading(true);
     setAnswer('');
+    setRequestError(null);
     setCitations([]);
     setLastQuery(q);
 
@@ -126,7 +128,7 @@ export default function AiCopilotDrawer({
       setCitations(res.citations || []);
       setAnsweredByModel(modelToUse);
     } catch (err: any) {
-      setAnswer(`Error querying AI: ${err.message || err}`);
+      setRequestError(err instanceof Error ? err.message : 'Could not reach the AI service. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -277,7 +279,16 @@ export default function AiCopilotDrawer({
             </div>
           )}
 
-          {!isLoading && !answer && (
+          {!isLoading && requestError && (
+            <div className="copilot-empty-state" role="alert">
+              <p>Could not get an answer: {requestError}</p>
+              <button type="button" className="copilot-preset-btn" onClick={() => { void handleAsk(lastQuery); }}>
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!isLoading && !answer && !requestError && (
             <div className="copilot-empty-state">
               <p>Type a question above to retrieve context-grounded answers from your workspace notes.</p>
               <div className="copilot-presets">

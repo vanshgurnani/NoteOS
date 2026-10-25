@@ -21,7 +21,7 @@ export default function RegisterPage() {
         body: JSON.stringify(form),
       });
       saveSession(result.token, result.user);
-      router.push('/');
+      router.push('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create account');
     } finally {
@@ -32,6 +32,7 @@ export default function RegisterPage() {
   return (
     <main className="notion-auth-container">
       <div className="notion-auth-box">
+        <Link className="notion-auth-home-link" href="/">← Back to NOTE OS</Link>
         <div className="notion-auth-brand">
           <div className="notion-auth-icon">✦</div>
           <span className="notion-auth-brand-text">NoteOS</span>

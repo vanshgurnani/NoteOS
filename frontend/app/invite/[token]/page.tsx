@@ -25,7 +25,7 @@ export default function AcceptInvitePage() {
     <Link href="/" className="notion-auth-brand"><span className="noteos-brand-lockup"><span className="noteos-brand-symbol">✦</span><span className="noteos-brand-word">NoteOS</span></span></Link>
     <h1 className="notion-auth-title">You’re invited</h1>
     <p className="notion-auth-subtitle">{busy ? 'Accepting your invitation…' : status}</p>
-    {!getSessionToken() && <><GoogleSignInButton /><p className="notion-auth-footer">Use the exact Google email address the invitation was sent to.</p></>}
+    {!getSessionToken() && <><GoogleSignInButton redirectTo={`/invite/${params.token}`} /><p className="notion-auth-footer">Use the exact Google email address the invitation was sent to.</p></>}
     <p className="notion-auth-footer"><Link href="/login">Sign in another way</Link></p>
   </section></main>;
 }

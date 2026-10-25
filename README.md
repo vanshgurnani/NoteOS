@@ -129,6 +129,12 @@ Copy the relevant `backend/.env.example` or `frontend/.env.example` file to a lo
 | `MCP_PUBLIC_URL` | Public MCP resource URL, normally `https://your-api.onrender.com/mcp`. |
 | `MCP_API_KEY` | Optional server-to-server MCP key. Prefer user-generated tokens for user-scoped access. |
 | `MCP_USER_ID` | User ID paired with the optional global `MCP_API_KEY`. |
+| `SMTP_HOST` | Invitation email SMTP host; use `smtp.gmail.com` for Gmail. |
+| `SMTP_PORT` | SMTP port; use `587` with STARTTLS. |
+| `SMTP_USER` | The single NOTE OS sender Gmail address. |
+| `SMTP_PASSWORD` | Google App Password for that sender account (not its normal password). |
+| `SMTP_FROM_EMAIL` | Sender address shown on invitation emails. |
+| `SMTP_USE_TLS` | Set to `true` for Gmail STARTTLS on port 587. |
 
 Never commit `.env`, JWT secrets, MCP tokens, or database credentials. If a credential was ever committed, revoke or rotate it even after removing it from the working tree.
 
@@ -182,7 +188,7 @@ Use `https://<backend-service>.onrender.com/mcp` as the MCP URL. If you add a cu
 
 See Render's [Docker deployment](https://render.com/docs/docker), [web service guide](https://render.com/docs/web-services), and [environment variable guide](https://render.com/docs/configure-environment-variables) for the current dashboard fields.
 
-## Connecting an MCP client
+## Invitation email delivery\n\nNOTE OS sends email only when a note collaborator invitation is created (`POST /notes/{note_id}/invites`). There is no Gmail inbox, search, read, compose, or per-user Gmail connection UI. All invitations use one centrally configured sender account through SMTP. For Gmail, enable 2-Step Verification on the sender account, create a Google App Password, and configure `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, and `SMTP_USE_TLS=true` on the backend. Do not commit the App Password.\n\n## Connecting an MCP client
 
 ### Generic MCP clients
 

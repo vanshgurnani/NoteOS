@@ -7872,3 +7872,19 @@ canvas {
   .notion-dashboard-pane { padding: 24px 16px 60px; }
   .notion-page-title-input { font-size: clamp(28px, 8vw, 38px); }
 }
+
+/* One consistent NoteOS identity — shared by public, auth and workspace */
+.noteos-brand-lockup { display: inline-flex; align-items: center; gap: 8px; color: #292d28; white-space: nowrap; }
+.noteos-brand-symbol { display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 26px; border-radius: 4px; background: #37352f; color: #fff; font-size: 13px; font-weight: 700; line-height: 1; }
+.noteos-brand-word { color: inherit; font-size: 15px; font-weight: 600; letter-spacing: -.02em; }
+.notion-auth-brand { display: inline-flex; width: fit-content; margin-bottom: 28px; text-decoration: none; }
+.notion-auth-brand .noteos-brand-word { color: var(--notion-text); }
+.public-brand { letter-spacing: 0; }
+.public-brand .noteos-brand-word { font-size: 15px; }
+.public-footer .noteos-brand-word { font-size: 15px; }
+.notion-sidebar-brand { display: inline-flex; width: fit-content; margin: 0 0 12px 8px; text-decoration: none; }
+.notion-sidebar-brand .noteos-brand-word { color: var(--notion-text, #292d28); }
+.dark-mode .noteos-brand-word { color: #f1f1ed; }
+@media (max-width: 600px) {
+  .notion-sidebar-brand { margin-left: 5px; }
+}

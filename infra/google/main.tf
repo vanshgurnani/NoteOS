@@ -11,7 +11,7 @@ locals {
     "serviceusage.googleapis.com",
     "iam.googleapis.com",
     "identitytoolkit.googleapis.com",
-    "oauth2.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
   ])
 }
 

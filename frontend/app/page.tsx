@@ -187,7 +187,7 @@ export default function Workspace() {
     const stored = localStorage.getItem('noteos_user') || localStorage.getItem('noteform_user');
     const token = localStorage.getItem('noteos_token') || localStorage.getItem('noteform_token');
     if (!stored || !token) {
-      router.replace('/login');
+      router.replace('/home');
       return;
     }
     setUser(JSON.parse(stored));
@@ -1204,6 +1204,25 @@ export default function Workspace() {
 
         {/* Quick Nav Tools */}
         <div className="notion-sidebar-quicklinks">
+          <Link
+            href="/dashboard"
+            className="notion-nav-row"
+            title="Open Workspace Dashboard & Live Nerve Center"
+          >
+            <span className="notion-nav-icon">📊</span>
+            <span className="notion-nav-text">Dashboard</span>
+            <span className="notion-nav-pill">Hub</span>
+          </Link>
+
+          <Link
+            href="/home"
+            className="notion-nav-row"
+            title="View Product Homepage & Live SVG Motion"
+          >
+            <span className="notion-nav-icon">🏠</span>
+            <span className="notion-nav-text">Homepage</span>
+          </Link>
+
           <Link
             href="/chat"
             className="notion-nav-row notion-nav-ai-chat"

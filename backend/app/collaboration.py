@@ -59,8 +59,15 @@ async def _send_invite(email: str, inviter: dict, note: dict, token: str, role: 
         "role": role,
         "inviteToken": token,
     }
+
     def _post():
-        return requests.post(endpoint, json=payload, headers={"Authorization": f"Bearer {api_key}"}, timeout=(5, 20))
+        return requests.post(
+            endpoint,
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=(5, 20),
+        )
+
     response = await asyncio.to_thread(_post)
     response.raise_for_status()
     result = response.json()

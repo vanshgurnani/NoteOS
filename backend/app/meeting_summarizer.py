@@ -2,13 +2,13 @@ import json
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from ..config import settings
-from ..auth import user_from_token
-from ..database import notes_collection
-from ..rag.providers import generate_chat_completion
-from ..rag.retriever import index_note
-from ..rag.cache import invalidate_user_rag_cache
-from ..serializers import serialize_note
+from .config import settings
+from .auth import user_from_token
+from .database import notes_collection
+from .rag.providers import generate_chat_completion
+from .rag.retriever import index_note
+from .rag.cache import invalidate_user_rag_cache
+from .serializers import serialize_note
 
 router = APIRouter()
 log = logging.getLogger(__name__)

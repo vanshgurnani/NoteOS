@@ -181,6 +181,14 @@ Use `https://<backend-service>.onrender.com/mcp` as the MCP URL. If you add a cu
 
 See Render's [Docker deployment](https://render.com/docs/docker), [web service guide](https://render.com/docs/web-services), and [environment variable guide](https://render.com/docs/configure-environment-variables) for the current dashboard fields.
 
+## Google Meet meeting summaries
+
+The meeting summarizer is mounted in the main FastAPI application under `/meetings`, while its implementation is isolated in `backend/app/meeting_summarizer`. Open `/meetings` in NOTE OS to connect Google, browse conference records, summarize Meet transcripts, paste a transcript manually, and review saved summaries.
+
+Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_MEET_REDIRECT_URI` on the backend. In Google Cloud, enable the Google Meet REST API, configure the OAuth consent screen, and add the exact redirect URI. The service requests only `https://www.googleapis.com/auth/meetings.space.readonly`. Keep `JWT_SECRET` stable: it is used to encrypt stored OAuth tokens. Google Meet transcript artifacts must be enabled for the meeting; this does not join or record live meetings. Review Google's OAuth verification requirements before enabling this for external users.
+
+Endpoints: `GET /meetings/google/connect`, `GET /meetings/google/conferences`, `GET /meetings/google/conferences/{conference_id}/transcripts`, `POST /meetings/google/transcripts/{transcript_id}/summarize`, `POST /meetings/summarize`, `GET /meetings`, and `DELETE /meetings/{summary_id}`.
+
 ## Connecting an MCP client
 
 ### Generic MCP clients

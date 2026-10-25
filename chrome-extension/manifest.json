@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "NOTE OS — Meet Notes",
+  "version": "0.1.0",
+  "description": "Capture visible Google Meet captions live and save meeting notes to NOTE OS.",
+  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "host_permissions": ["https://meet.google.com/*", "http://localhost:8000/*", "https://*/*"],
+  "action": {"default_popup": "popup.html", "default_title": "NOTE OS Meet Notes"},
+  "content_scripts": [{"matches": ["https://meet.google.com/*"], "js": ["content.js"], "run_at": "document_idle"}]
+}

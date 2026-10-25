@@ -7,4 +7,3 @@ python-multipart==0.0.20
 requests>=2.31.0
 
 google-auth>=2.35.0
-fastapi-mail==1.4.2

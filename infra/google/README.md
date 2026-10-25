@@ -1,16 +1,16 @@
 # NOTE OS Google Cloud bootstrap
 
-This Terraform stack creates a dedicated Google Cloud project, attaches billing, and enables the APIs used by NOTE OS Google Identity integration.
+This Terraform stack creates a dedicated Google Cloud project and enables the APIs used by NOTE OS Google Identity integration. It does not create, link, modify, or request access to any billing account.
 
 ## Prerequisites
-- Google Cloud account with project creation and billing permissions.
+- Google Cloud account with permission to create projects and enable project services. No billing-account permissions are requested by this Terraform configuration.
 - Terraform >= 1.6.
 - Application Default Credentials: `gcloud auth application-default login`.
 
 ## Apply
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-# Edit project_id, billing_account, optional org_id and frontend_origins.
+# Edit project_id, optional org_id and frontend_origins.
 terraform init
 terraform plan
 terraform apply

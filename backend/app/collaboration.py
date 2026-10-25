@@ -48,28 +48,25 @@ def _note_or_404(note_id: str, user: dict, write: bool = False) -> dict:
 
 
 async def _send_invite(email: str, inviter: dict, note: dict, token: str, role: str) -> bool:
-    endpoint = os.getenv("GOOGLE_APPS_SCRIPT_URL", "").strip()
-    secret = os.getenv("GOOGLE_APPS_SCRIPT_SECRET", "").strip()
-    if not endpoint or not secret:
-        raise RuntimeError("Google Apps Script email endpoint is not configured")
-    frontend_url = os.getenv("APP_URL", "http://localhost:3000").rstrip("/")
+    endpoint = os.getenv("MAILER_API_URL", "").strip()
+    api_key = os.getenv("MAILER_API_KEY", "").strip()
+    if not endpoint or not api_key:
+        raise RuntimeError("Vercel mailer endpoint is not configured")
     payload = {
-        "apiKey": secret,
         "to": email,
         "inviterName": inviter.get("username", "A teammate"),
         "noteTitle": note.get("title", "a note"),
         "role": role,
-        "inviteUrl": f"{frontend_url}/invite/{token}",
+        "inviteToken": token,
     }
     def _post():
-        return requests.post(endpoint, json=payload, timeout=(5, 20))
+        return requests.post(endpoint, json=payload, headers={"Authorization": f"Bearer {api_key}"}, timeout=(5, 20))
     response = await asyncio.to_thread(_post)
     response.raise_for_status()
     result = response.json()
     if not result.get("success"):
-        raise RuntimeError("Google Apps Script did not confirm email delivery")
+        raise RuntimeError("Vercel mailer did not confirm email delivery")
     return True
-
 
 @router.post("/notes/{note_id}/invites")
 async def invite_member(note_id: str, payload: InviteCreate, user: dict = Depends(current_user)):

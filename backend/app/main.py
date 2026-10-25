@@ -89,7 +89,7 @@ def note_or_404(note_id: str, user: dict, write: bool = False) -> dict:
     email = (user.get("email") or "").strip().lower()
     collaborator = next((entry for entry in note.get("collaborators", [])
                          if entry.get("email", "").strip().lower() == email), None)
-    if not collaborator:
+    if not collaborator or not collaborator.get("accepted_at"):
         raise HTTPException(status_code=404, detail="Note not found")
     if not user.get("google_id") or user.get("auth_provider") not in {"google", "dual"}:
         raise HTTPException(status_code=403, detail={
@@ -719,7 +719,7 @@ def get_note(note_id: str, user: dict = Depends(current_user)):
 
 @app.patch("/notes/{note_id}")
 def update_note(note_id: str, payload: NoteUpdate, user: dict = Depends(current_user)):
-    note = note_or_404(note_id, user)
+    note = note_or_404(note_id, user, write=True)
     current_version = int(note.get("version", 1))
     if payload.version is not None and payload.version != current_version:
         raise HTTPException(
@@ -774,7 +774,9 @@ def update_note(note_id: str, payload: NoteUpdate, user: dict = Depends(current_
 
 @app.delete("/notes/{note_id}")
 def delete_note(note_id: str, user: dict = Depends(current_user)):
-    note_or_404(note_id, user)
+    note = note_or_404(note_id, user)
+    if str(note.get("owner_id")) != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the owner can delete a shared note")
     if notes_collection().find_one({"parent_id": ObjectId(note_id), **owner_filter(user)}):
         raise HTTPException(status_code=409, detail="Move or delete this page's child pages before deleting it")
     notes_collection().delete_one({"_id": ObjectId(note_id), **owner_filter(user)})
@@ -789,6 +791,8 @@ def delete_note(note_id: str, user: dict = Depends(current_user)):
 @app.post("/notes/{note_id}/share")
 def share_note(note_id: str, user: dict = Depends(current_user)):
     note = note_or_404(note_id, user)
+    if str(note.get("owner_id")) != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the owner can publish this note")
     public_id = note.get("public_id")
     if not public_id:
         public_id = f"pub_{secrets.token_urlsafe(12)}"
@@ -803,7 +807,9 @@ def share_note(note_id: str, user: dict = Depends(current_user)):
 
 @app.delete("/notes/{note_id}/share")
 def unshare_note(note_id: str, user: dict = Depends(current_user)):
-    note_or_404(note_id, user)
+    note = note_or_404(note_id, user)
+    if str(note.get("owner_id")) != str(user["_id"]):
+        raise HTTPException(status_code=403, detail="Only the owner can change public sharing")
     now = datetime.now(timezone.utc)
     notes_collection().update_one(
         {"_id": ObjectId(note_id), **owner_filter(user)},

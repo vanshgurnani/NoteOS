@@ -33,10 +33,7 @@ export default function RegisterPage() {
     <main className="notion-auth-container">
       <div className="notion-auth-box">
         <Link className="notion-auth-home-link" href="/">← Back to NOTE OS</Link>
-        <div className="notion-auth-brand">
-          <div className="notion-auth-icon">✦</div>
-          <span className="notion-auth-brand-text">NoteOS</span>
-        </div>
+        <Link href="/" className="notion-auth-brand" aria-label="NoteOS home"><span className="noteos-brand-lockup"><span className="noteos-brand-symbol">✦</span><span className="noteos-brand-word">NoteOS</span></span></Link>
 
         <h1 className="notion-auth-title">Create an account</h1>
         <p className="notion-auth-subtitle">Start thinking and writing in your private workspace</p>

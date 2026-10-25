@@ -4,12 +4,11 @@ import hashlib
 import logging
 import os
 import secrets
-import smtplib
 from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from pydantic import BaseModel, EmailStr, Field
 from pymongo import ASCENDING
 
@@ -56,36 +55,54 @@ def _note_or_404(note_id: str, user: dict, write: bool = False) -> dict:
     return note
 
 
-def _send_invite(email: str, inviter: dict, note: dict, token: str) -> bool:
+async def _send_invite(email: str, inviter: dict, note: dict, token: str) -> bool:
     host = os.getenv("SMTP_HOST", "").strip()
     username = os.getenv("SMTP_USER", "").strip()
     password = os.getenv("SMTP_PASSWORD", "").strip()
     from_email = os.getenv("SMTP_FROM_EMAIL", "").strip() or username
     if not all((host, username, password, from_email)):
-        raise RuntimeError("SMTP configuration is incomplete: SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM_EMAIL are required")
-    message = EmailMessage()
-    message["Subject"] = f'{inviter.get("username", "A teammate")} invited you to edit "{note.get("title", "a note")}" on NoteOS'
-    message["From"] = from_email
-    message["To"] = email
+        raise RuntimeError(
+            "SMTP configuration is incomplete: SMTP_HOST, SMTP_USER, "
+            "SMTP_PASSWORD and SMTP_FROM_EMAIL are required"
+        )
+
     app_url = os.getenv("APP_URL", "http://localhost:3000").rstrip("/")
     link = f"{app_url}/invite/{token}"
-    message.set_content(
-        f'{inviter.get("username", "A teammate")} invited you to collaborate on "{note.get("title", "a note")}" in NoteOS.\n\n'
-        f'Sign in with Google using {email}, then open this invitation: {link}\n\n'
-        f"You have {note.get('invite_role', 'editor')} access to this note. If you were not expecting this invitation, you can ignore this email."
+    inviter_name = inviter.get("username", "A teammate")
+    note_title = note.get("title", "a note")
+    role = note.get("invite_role", "editor")
+
+    config = ConnectionConfig(
+        MAIL_USERNAME=username,
+        MAIL_PASSWORD=password,
+        MAIL_FROM=from_email,
+        MAIL_FROM_NAME="NOTE OS",
+        MAIL_SERVER=host,
+        MAIL_PORT=int(os.getenv("SMTP_PORT", "587")),
+        MAIL_STARTTLS=os.getenv("SMTP_USE_TLS", "true").lower() == "true",
+        MAIL_SSL_TLS=os.getenv("SMTP_USE_SSL", "false").lower() == "true",
+        USE_CREDENTIALS=True,
+        VALIDATE_CERTS=True,
     )
-    port = int(os.getenv("SMTP_PORT", "587"))
-    with smtplib.SMTP(host, port, timeout=12) as server:
-        if os.getenv("SMTP_USE_TLS", "true").lower() == "true":
-            server.starttls()
-        server.ehlo()
-        server.login(username, password)
-        server.send_message(message)
+    message = MessageSchema(
+        subject=f'{inviter_name} invited you to collaborate on "{note_title}" in NOTE OS',
+        recipients=[email],
+        body=(
+            f'<p>{inviter_name} invited you to collaborate on '
+            f'<strong>{note_title}</strong> in NOTE OS.</p>'
+            f'<p>You have <strong>{role}</strong> access.</p>'
+            f'<p><a href="{link}">Accept your invitation</a></p>'
+            f'<p>Sign in with Google using {email} to continue.</p>'
+            '<p>If you were not expecting this invitation, you can ignore this email.</p>'
+        ),
+        subtype=MessageType.html,
+    )
+    await FastMail(config).send_message(message)
     return True
 
 
 @router.post("/notes/{note_id}/invites")
-def invite_member(note_id: str, payload: InviteCreate, user: dict = Depends(current_user)):
+async def invite_member(note_id: str, payload: InviteCreate, user: dict = Depends(current_user)):
     note = _note_or_404(note_id, user)
     if str(note.get("owner_id")) != str(user["_id"]):
         raise HTTPException(status_code=403, detail="Only the note owner can invite collaborators")
@@ -121,7 +138,7 @@ def invite_member(note_id: str, payload: InviteCreate, user: dict = Depends(curr
     email_sent = False
     note["invite_role"] = payload.role
     try:
-        email_sent = _send_invite(email, user, note, token)
+        email_sent = await _send_invite(email, user, note, token)
     except Exception as exc:
         # Keep the invite pending; log the real failure for Render diagnostics.
         logger.exception("NOTE OS invitation email delivery failed for %s (%s)", email, type(exc).__name__)

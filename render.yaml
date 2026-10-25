@@ -32,6 +32,23 @@ services:
           property: host
       - key: MCP_PUBLIC_URL
         value: https://noteos-backend.onrender.com/mcp
+      # Google Identity Services verifies ID tokens against this OAuth Web Client ID.
+      # No Google Client Secret is used by the current GIS credential flow.
+      # SMTP settings are used to send workspace collaboration invitations.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: SMTP_USE_TLS
+        value: "true"
+      - key: APP_URL
+        value: https://noteos-frontend.onrender.com
       # Optional AI Provider API Keys (Can also be configured inside NoteOS Settings UI)
       - key: GEMINI_API_KEY
         sync: false

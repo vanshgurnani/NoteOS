@@ -19,7 +19,9 @@ from ..rag.providers import (
     stream_chat_completion,
 )
 from ..rag.retriever import index_note, retrieve_relevant_chunks
+from ..workers import dispatch_background_task, index_note_task
 from .memory import compress_conversation_history
+
 from .models import (
     ChatMessageOut,
     ConversationDetail,
@@ -402,16 +404,19 @@ async def create_note_from_message(
     res = notes_collection().insert_one(new_note)
     note_id = str(res.inserted_id)
 
-    try:
-        index_note(
+    dispatch_background_task(
+        index_note_task,
+        note_id,
+        user_id,
+        sync_fallback=lambda: index_note(
             note_id=note_id,
             owner_id=user_id,
             title=title,
             content=content,
             category=new_note["category"],
             tags=new_note["tags"],
-        )
-    except Exception:
-        pass
+        ),
+    )
 
     return {"note_id": note_id, "title": title}
+

@@ -33,6 +33,15 @@ from .rag.cache import invalidate_user_rag_cache
 from .rag.providers import generate_chat_completion
 from .chat.router import router as chat_router
 from .settings_router import router as settings_router
+from .workers import (
+    celery_app,
+    delete_note_chunks_task,
+    dispatch_background_task,
+    import_notes_rag_task,
+    index_note_task,
+    reindex_workspace_task,
+    tasks_router,
+)
 
 
 app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
@@ -67,6 +76,7 @@ app.include_router(rag_router)
 app.include_router(chat_router)
 app.include_router(openai_router)
 app.include_router(settings_router)
+app.include_router(tasks_router)
 
 
 def owner_filter(user: dict) -> dict:
@@ -679,18 +689,24 @@ def create_note(payload: NoteCreate, user: dict = Depends(current_user)):
     note = {**note_data, "owner_id": user["_id"], "bookmarked": False, "version": 1, "created_at": now, "updated_at": now}
     result = notes_collection().insert_one(note)
     note["_id"] = result.inserted_id
-    try:
-        index_note(
-            note_id=str(result.inserted_id),
-            owner_id=str(user["_id"]),
-            title=note.get("title", ""),
-            content=note.get("content", ""),
-            category=note.get("category", "general"),
-            tags=note.get("tags", []),
-        )
-        invalidate_user_rag_cache(str(user["_id"]))
-    except Exception:
-        pass
+    note_id_str = str(result.inserted_id)
+    user_id_str = str(user["_id"])
+    dispatch_background_task(
+        index_note_task,
+        note_id_str,
+        user_id_str,
+        sync_fallback=lambda: (
+            index_note(
+                note_id=note_id_str,
+                owner_id=user_id_str,
+                title=note.get("title", ""),
+                content=note.get("content", ""),
+                category=note.get("category", "general"),
+                tags=note.get("tags", []),
+            ),
+            invalidate_user_rag_cache(user_id_str),
+        ),
+    )
     return {"note": serialize_note(note)}
 
 
@@ -739,18 +755,23 @@ def update_note(note_id: str, payload: NoteUpdate, user: dict = Depends(current_
             },
         )
     updated = note_or_404(note_id, user)
-    try:
-        index_note(
-            note_id=note_id,
-            owner_id=str(user["_id"]),
-            title=updated.get("title", ""),
-            content=updated.get("content", ""),
-            category=updated.get("category", "general"),
-            tags=updated.get("tags", []),
-        )
-        invalidate_user_rag_cache(str(user["_id"]))
-    except Exception:
-        pass
+    user_id_str = str(user["_id"])
+    dispatch_background_task(
+        index_note_task,
+        note_id,
+        user_id_str,
+        sync_fallback=lambda: (
+            index_note(
+                note_id=note_id,
+                owner_id=user_id_str,
+                title=updated.get("title", ""),
+                content=updated.get("content", ""),
+                category=updated.get("category", "general"),
+                tags=updated.get("tags", []),
+            ),
+            invalidate_user_rag_cache(user_id_str),
+        ),
+    )
     return {"note": serialize_note(updated)}
 
 
@@ -760,11 +781,16 @@ def delete_note(note_id: str, user: dict = Depends(current_user)):
     if notes_collection().find_one({"parent_id": ObjectId(note_id), **owner_filter(user)}):
         raise HTTPException(status_code=409, detail="Move or delete this page's child pages before deleting it")
     notes_collection().delete_one({"_id": ObjectId(note_id), **owner_filter(user)})
-    try:
-        delete_note_chunks(note_id, str(user["_id"]))
-        invalidate_user_rag_cache(str(user["_id"]))
-    except Exception:
-        pass
+    user_id_str = str(user["_id"])
+    dispatch_background_task(
+        delete_note_chunks_task,
+        note_id,
+        user_id_str,
+        sync_fallback=lambda: (
+            delete_note_chunks(note_id, user_id_str),
+            invalidate_user_rag_cache(user_id_str),
+        ),
+    )
     return {"success": True}
 
 
@@ -870,6 +896,28 @@ async def import_workspace(file: UploadFile = File(...), user: dict = Depends(cu
             "updated_at": note["updated_at"] or now,
         })
     notes_collection().insert_many(documents)
+    # Offload RAG chunking and indexing to Celery worker in background
+    inserted_ids = [str(doc["_id"]) for doc in documents]
+    user_id_str = str(user["_id"])
+    dispatch_background_task(
+        import_notes_rag_task,
+        inserted_ids,
+        user_id_str,
+        sync_fallback=lambda: (
+            [
+                index_note(
+                    note_id=str(doc["_id"]),
+                    owner_id=user_id_str,
+                    title=doc.get("title", ""),
+                    content=doc.get("content", ""),
+                    category=doc.get("category", "general"),
+                    tags=doc.get("tags", []),
+                )
+                for doc in documents
+            ],
+            invalidate_user_rag_cache(user_id_str),
+        ),
+    )
     return {"imported": len(documents)}
 
 

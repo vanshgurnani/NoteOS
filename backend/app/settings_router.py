@@ -13,8 +13,10 @@ from .config import settings
 from .database import note_chunks_collection, notes_collection, rag_query_cache_collection, users_collection
 from .rag.cache import invalidate_user_rag_cache
 from .rag.retriever import index_all_user_notes
+from .workers import dispatch_background_task, reindex_workspace_task
 
 logger = logging.getLogger(__name__)
+
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -316,13 +318,26 @@ async def clear_rag_cache(user: dict = Depends(current_user)):
 
 @router.post("/rag/reindex")
 async def trigger_reindex(user: dict = Depends(current_user)):
-    res = index_all_user_notes(str(user["_id"]))
-    invalidate_user_rag_cache(str(user["_id"]))
+    user_id_str = str(user["_id"])
+    task_id = dispatch_background_task(
+        reindex_workspace_task,
+        user_id_str,
+        sync_fallback=lambda: index_all_user_notes(user_id_str),
+    )
+    if task_id:
+        return {
+            "status": "queued",
+            "task_id": task_id,
+            "message": "Workspace reindexing dispatched in background via Celery",
+        }
+    res = index_all_user_notes(user_id_str)
+    invalidate_user_rag_cache(user_id_str)
     return {
         "status": "ok",
         "notes_indexed": res.get("notes_indexed", 0),
         "chunks_indexed": res.get("chunks_indexed", 0),
     }
+
 
 
 @router.post("/account/password")

@@ -23,6 +23,12 @@ from .retriever import (
     index_note,
     retrieve_relevant_chunks,
 )
+from ..workers import (
+    celery_app,
+    dispatch_background_task,
+    index_note_task,
+    reindex_workspace_task,
+)
 
 router = APIRouter(prefix="/rag", tags=["RAG"])
 
@@ -157,6 +163,27 @@ async def index_workspace(
         if not note:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note not found")
 
+        task_id = dispatch_background_task(
+            index_note_task,
+            str(note["_id"]),
+            user_id,
+            sync_fallback=lambda: index_note(
+                note_id=str(note["_id"]),
+                owner_id=user_id,
+                title=note.get("title", ""),
+                content=note.get("content", ""),
+                category=note.get("category", "general"),
+                tags=note.get("tags", []),
+            ),
+        )
+        if task_id:
+            return {
+                "status": "queued",
+                "task_id": task_id,
+                "note_id": str(note["_id"]),
+                "notes_indexed": 1,
+            }
+
         count = index_note(
             note_id=str(note["_id"]),
             owner_id=user_id,
@@ -167,8 +194,47 @@ async def index_workspace(
         )
         return {"notes_indexed": 1, "chunks_indexed": count}
 
+    task_id = dispatch_background_task(
+        reindex_workspace_task,
+        user_id,
+        sync_fallback=lambda: index_all_user_notes(user_id),
+    )
+    if task_id:
+        return {
+            "status": "queued",
+            "task_id": task_id,
+            "message": "Workspace reindexing dispatched via Celery background worker",
+        }
+
     stats = index_all_user_notes(user_id)
     return stats
+
+
+@router.get("/tasks/{task_id}")
+async def get_rag_task_status(
+    task_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    try:
+        from celery.result import AsyncResult
+        res = AsyncResult(task_id, app=celery_app)
+        data: dict[str, Any] = {
+            "task_id": task_id,
+            "status": res.status,
+            "ready": res.ready(),
+            "successful": res.successful() if res.ready() else False,
+        }
+        if res.ready():
+            if res.successful():
+                data["result"] = res.result
+            else:
+                data["error"] = str(res.result)
+        elif res.status == "PROGRESS":
+            data["progress"] = res.info
+        return data
+    except Exception as exc:
+        return {"task_id": task_id, "status": "UNKNOWN", "error": str(exc)}
+
 
 
 @router.get("/status")

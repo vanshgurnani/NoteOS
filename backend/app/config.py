@@ -84,5 +84,10 @@ class Settings:
     rag_chunk_size = int(os.getenv("RAG_CHUNK_SIZE", "300"))
     rag_chunk_overlap = int(os.getenv("RAG_CHUNK_OVERLAP", "40"))
 
+    # Celery & Redis Configuration
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    celery_broker_url = os.getenv("CELERY_BROKER_URL", os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+    celery_result_backend = os.getenv("CELERY_RESULT_BACKEND", os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+
 
 settings = Settings()

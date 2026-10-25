@@ -7,12 +7,21 @@ services:
     ports:
       - "27017:27017"
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   backend:
     build: ./backend
     restart: unless-stopped
     environment:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB: noteform
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
       CORS_ORIGINS: http://localhost:3000
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8000/mcp}
@@ -20,8 +29,23 @@ services:
       MCP_USER_ID: ${MCP_USER_ID:-}
     depends_on:
       - mongo
+      - redis
     ports:
       - "8000:8000"
+
+  celery_worker:
+    build: ./backend
+    restart: unless-stopped
+    command: celery -A app.workers.celery_app worker --beat --loglevel=info --concurrency=2
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: noteform
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      - mongo
+      - redis
 
   frontend:
     build:

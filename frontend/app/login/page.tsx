@@ -22,7 +22,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       saveSession(result.token, result.user);
-      router.push('/');
+      router.push('/workspace');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in');
     } finally {
@@ -33,6 +33,7 @@ export default function LoginPage() {
   return (
     <main className="notion-auth-container">
       <div className="notion-auth-box">
+        <Link className="notion-auth-home-link" href="/">← Back to NOTE OS</Link>
         <div className="notion-auth-brand">
           <div className="notion-auth-icon">✦</div>
           <span className="notion-auth-brand-text">NoteOS</span>

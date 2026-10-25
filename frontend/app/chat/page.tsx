@@ -572,15 +572,6 @@ export default function ChatPage() {
                 <span>⬇️ Export .md</span>
               </button>
 
-              {/* Dashboard Link */}
-              <Link
-                href="/dashboard"
-                className="chat-export-btn"
-                title="Go to Workspace Dashboard"
-              >
-                <span>📊 Dashboard</span>
-              </Link>
-
               {/* Settings Link */}
               <Link
                 href="/settings"

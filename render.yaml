@@ -58,50 +58,7 @@ services:
         sync: false
 
   # ---------------------------------------------------------------------------
-  # 2. Celery Background Worker Service (Async RAG Embeddings, Indexing, Cleanup)
-  # ---------------------------------------------------------------------------
-  - type: worker
-    name: noteos-celery-worker
-    runtime: docker
-    rootDir: backend
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    plan: starter
-    region: oregon
-    dockerCommand: celery -A app.workers.celery_app worker --beat --loglevel=info --concurrency=2
-    envVars:
-      - key: MONGO_URI
-        sync: false
-      - key: MONGO_DB
-        value: noteform
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: noteos-redis
-          property: connectionString
-      - key: CELERY_BROKER_URL
-        fromService:
-          type: redis
-          name: noteos-redis
-          property: connectionString
-      - key: CELERY_RESULT_BACKEND
-        fromService:
-          type: redis
-          name: noteos-redis
-          property: connectionString
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GROQ_API_KEY
-        sync: false
-      - key: LLAMA_GATEWAY_URL
-        value: https://llama-api-gateway.onrender.com
-      - key: LLAMA_GATEWAY_MODEL
-        value: llama-3.2-3b-instruct
-      - key: LLAMA_GATEWAY_API_KEY
-        sync: false
-
-  # ---------------------------------------------------------------------------
-  # 3. Redis Instance (Message Broker & Result Store for Celery)
+  # 2. Redis Instance (Message Broker & Result Store for Celery - 100% Free Plan)
   # ---------------------------------------------------------------------------
   - type: redis
     name: noteos-redis
@@ -111,8 +68,9 @@ services:
     maxmemoryPolicy: noeviction
 
   # ---------------------------------------------------------------------------
-  # 4. Frontend Web Service (Next.js 14)
+  # 3. Frontend Web Service (Next.js 14)
   # ---------------------------------------------------------------------------
+
   - type: web
     name: noteos-frontend
     runtime: node

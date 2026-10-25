@@ -153,7 +153,12 @@ def stream_gemini(
         elif role == "assistant":
             contents.append({"role": "model", "parts": [{"text": content}]})
 
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:streamGenerateContent?alt=sse&key={key}"
+    # Map any alias or fictitious model to real Google API model
+    google_model = model_name
+    if google_model in {"gemini-3.8-flash", "gemini-3.8", "gemini-flash"}:
+        google_model = "gemini-2.0-flash"
+
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{google_model}:streamGenerateContent?alt=sse&key={key}"
     payload: dict[str, Any] = {
         "contents": contents,
         "generationConfig": {
@@ -170,7 +175,7 @@ def stream_gemini(
             json=payload,
             headers={"Content-Type": "application/json"},
             stream=True,
-            timeout=30,
+            timeout=(4, 10),
         )
         if response.status_code == 429:
             gemini_key_mgr.mark_rate_limited(key)
@@ -211,9 +216,16 @@ def stream_groq(
     if not key:
         raise ValueError("No Groq API key available")
 
+    # Map internal model IDs to actual Groq API model names
+    groq_model = model_name
+    if groq_model in {"openai/gpt-oss-120b", "gpt-oss-120b", "llama-3.3", "llama-70b"}:
+        groq_model = "llama-3.3-70b-versatile"
+    elif groq_model in {"openai/gpt-oss-20b", "gpt-oss-20b", "llama-3.1", "llama-8b"}:
+        groq_model = "llama-3.1-8b-instant"
+
     api_url = "https://api.groq.com/openai/v1/chat/completions"
     payload = {
-        "model": model_name,
+        "model": groq_model,
         "messages": messages,
         "temperature": 0.2,
         "max_tokens": 2048,
@@ -229,7 +241,7 @@ def stream_groq(
                 "Content-Type": "application/json",
             },
             stream=True,
-            timeout=30,
+            timeout=(4, 10),
         )
         if response.status_code == 429:
             groq_key_mgr.mark_rate_limited(key)
@@ -417,24 +429,38 @@ def stream_chat_completion(
             except Exception as exc:
                 logger.warning("Custom AI stream failed: %s", exc)
 
+    tried_gemini = False
+    tried_groq = False
+    tried_custom = False
+
     if target_model.startswith("gemini-") and (gemini_key or settings.gemini_api_keys or settings.gemini_api_key):
+        tried_gemini = True
         try:
             yield from stream_gemini(messages, target_model, gemini_key)
             return
         except Exception as exc:
-            logger.warning("Gemini stream failed: %s; trying gateway/Groq", exc)
+            logger.warning("Gemini stream failed: %s; trying Groq fallback", exc)
 
-    if (target_model.startswith("openai/") or "groq" in target_model) and (groq_key or settings.groq_api_keys or settings.groq_api_key):
+    if (target_model.startswith("openai/") or "groq" in target_model.lower() or "llama" in target_model.lower()) and (groq_key or settings.groq_api_keys or settings.groq_api_key):
+        tried_groq = True
         try:
-            yield from stream_groq(messages, target_model if target_model.startswith("openai/") else "openai/gpt-oss-120b", groq_key)
+            yield from stream_groq(messages, target_model if target_model.startswith("openai/") else "llama-3.3-70b-versatile", groq_key)
             return
         except Exception as exc:
-            logger.warning("Groq stream failed: %s; trying gateway", exc)
+            logger.warning("Groq stream failed: %s; trying fallback", exc)
 
-    # Resilient fallback order: Gemini -> deployed Llama gateway -> Groq -> explicitly configured custom endpoint.
-    if gemini_key or settings.gemini_api_keys or settings.gemini_api_key:
+    # Resilient fallback order: ONLY try providers not already attempted.
+    # Prioritize Groq first if Gemini failed (Groq has high availability and fast inference)
+    if not tried_groq and (groq_key or settings.groq_api_keys or settings.groq_api_key):
         try:
-            yield from stream_gemini(messages, "gemini-3.8-flash", gemini_key)
+            yield from stream_groq(messages, "llama-3.3-70b-versatile", groq_key)
+            return
+        except Exception as exc:
+            logger.warning("Groq fallback failed: %s", exc)
+
+    if not tried_gemini and (gemini_key or settings.gemini_api_keys or settings.gemini_api_key):
+        try:
+            yield from stream_gemini(messages, "gemini-2.0-flash", gemini_key)
             return
         except Exception as exc:
             logger.warning("Gemini fallback failed: %s", exc)
@@ -446,14 +472,7 @@ def stream_chat_completion(
         except Exception as exc:
             logger.warning("NOTE OS Llama gateway fallback failed: %s", exc)
 
-    if groq_key or settings.groq_api_keys or settings.groq_api_key:
-        try:
-            yield from stream_groq(messages, "openai/gpt-oss-120b", groq_key)
-            return
-        except Exception as exc:
-            logger.warning("Groq fallback failed: %s", exc)
-
-    if custom_url:
+    if not tried_custom and custom_url:
         try:
             yield from stream_custom_ai(messages, custom_url, custom_key, custom_model)
             return

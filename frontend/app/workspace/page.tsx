@@ -1184,6 +1184,7 @@ export default function Workspace() {
       {/* Notion Sidebar */}
       <aside className="notion-sidebar">
         <div className="notion-sidebar-header">
+          <Link href="/" className="notion-sidebar-brand" aria-label="NoteOS home"><span className="noteos-brand-lockup"><span className="noteos-brand-symbol">✦</span><span className="noteos-brand-word">NoteOS</span></span></Link>
           <div className="notion-workspace-user">
             <div className="notion-workspace-avatar">{user.username[0].toUpperCase()}</div>
             <div className="notion-workspace-meta">

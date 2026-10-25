@@ -33,6 +33,8 @@ from .rag.cache import invalidate_user_rag_cache
 from .rag.providers import generate_chat_completion
 from .chat.router import router as chat_router
 from .settings_router import router as settings_router
+from .google_auth import router as google_auth_router
+from .collaboration import router as collaboration_router
 
 
 app = FastAPI(title=settings.app_name, version="2.0.0", lifespan=lifespan)
@@ -67,6 +69,8 @@ app.include_router(rag_router)
 app.include_router(chat_router)
 app.include_router(openai_router)
 app.include_router(settings_router)
+app.include_router(google_auth_router)
+app.include_router(collaboration_router)
 
 
 def owner_filter(user: dict) -> dict:

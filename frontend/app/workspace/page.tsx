@@ -4,8 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import MarkdownEditor from '../components/MarkdownEditor';
-import PagesTree from './components/PagesTree';
-import AiCopilotDrawer from './components/AiCopilotDrawer';
+import PagesTree from '../components/PagesTree';
+import AiCopilotDrawer from '../components/AiCopilotDrawer';
 import {
   ApiError,
   api,
@@ -1085,7 +1085,7 @@ export default function Workspace() {
 
   function logout() {
     clearSession();
-    router.push('/login');
+    router.push('/');
   }
 
   async function generateMcpToken() {

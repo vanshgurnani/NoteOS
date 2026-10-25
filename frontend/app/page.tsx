@@ -851,6 +851,8 @@ export default function Workspace() {
   }
 
   async function createNoteFromTemplate(tpl: typeof NOTION_TEMPLATES[0]) {
+    // Do not switch the active page until its pending edits are safely saved.
+    if (draftDirty && !await saveNote()) return;
     setShowDashboard(false);
     try {
       const res = await api<{ note: Note }>('/notes', {
